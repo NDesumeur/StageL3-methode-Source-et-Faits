@@ -1,0 +1,11 @@
+﻿Algorithme,Accuracy,Précision,Rappel,F1-Score
+SVM (Support Vector Machine),97.19%,97.18%,97.17%,97.18%
+MyVotingClassifier (Source & Faits),96.32%,96.33%,96.29%,96.31%
+MyVotingClassifier (Vote SOFT),96.16%,96.20%,96.10%,96.14%
+KNN (K-Nearest Neighbors),96.16%,96.24%,96.09%,96.14%
+Random Forest,96.11%,96.09%,96.09%,96.09%
+MyVotingClassifier (Vote HARD),95.91%,95.95%,95.86%,95.90%
+Régression Logistique,91.51%,91.42%,91.39%,91.40%
+Ridge Classifier,85.24%,85.48%,84.98%,84.99%
+Arbre de Décision,85.16%,84.92%,84.93%,84.91%
+Naïf Bayes,53.96%,65.49%,53.02%,47.96%

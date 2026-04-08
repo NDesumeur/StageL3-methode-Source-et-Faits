@@ -1,0 +1,139 @@
+SEMAINE 1
+
+J1 explication du projet au matin 
+puis découverte des modules scikit-learn et pyod 
+
+J2 + J3
+Approfondisement sur les modules 
+premiers tests sur des données crées 
+
+J4 
+Test sur un jeu de donnée images MNIST
+Commencer à créer MyVotingClassifier
+
+J5
+Fini de créer MyVotingClassifier en mode hard et ajout du mode soft ainsi que toutes les méthodes nécessaires 
+création de classes utilitaires 
+
+SEMAINE 2
+
+J1 
+essayer de comprendre comment fonction T-SNE et essayer de voir comment en faire une version simple avec des résultats corrects
+
+J2 
+Création de MyT_SNE, début de création, la méthode fit_transform prend du temps à recréer
+
+J3 
+Avoir fini de créer MyT_SNE avoir fait une méthode pour afficher les statistiques et les graphiques
+avoir fait le mode Source & Faits version non optimisé - vérifier sur 7 méthodes peu optimisé
+comparaison avec soft et hard, premier de peu
+test avec plus de méthodes 
+      S&F                
+Accuracy  : 96.79%
+Precision : 96.80%
+Recall    : 96.77%
+F1-Score  : 96.78%
+      Hard 
+Accuracy  : 96.67%
+Precision : 96.68%
+Recall    : 96.64%
+F1-Score  : 96.66%
+      Soft 
+Accuracy  : 96.44%
+Precision : 96.49%
+Recall    : 96.39%
+F1-Score  : 96.43%
+
+--- SCORES INDIVIDUELS DES 12 MODELES SUR LE TEST SET ---
+  -         et : 96.85% de pr�cision
+  -         rf : 96.81% de pr�cision
+  -       nb_g : 63.31% de pr�cision
+  -      knn_3 : 97.29% de pr�cision
+  -      knn_7 : 97.29% de pr�cision
+  -     logreg : 92.11% de pr�cision
+  -        sgd : 89.09% de pr�cision
+  -       nb_m : 82.86% de pr�cision
+  -  rf_faible : 96.81% de pr�cision
+  -  et_faible : 96.85% de pr�cision
+  -    bagging : 95.78% de pr�cision
+  -        ada : 71.74% de pr�cision
+
+S&F est plus performant que soft lorsqu'on a plus de modeles différents avec des scores variables
+
+J4 
+Adapter S&F pour avoir une version clean avec numpy
+
+Nouvelle tache : 
+Il faudrait maintenant faire une application avec streamlit (streamlit.io). C'est un outil qui permet de déployer des applis python (notamment avec scikit-learn) dans un navigateur.
+
+
+
+Voici ce qu'il faut faire :
+
+
+
+- afficher la projection obtenue avec t-SNE
+
+- afficher les scores de différents classifieurs que l'on a utilisés
+
+- afficher les scores du VotingClassifier version hard et soft
+
+- afficher le score de notre VotingClassifier avec Sources & Faits
+
+
+
+Pour chaque cas, il faut afficher : le score sur le jeu d'entraînement (les 80% des données que l'on a utilisées pour l'entraînement) et le score sur le jeu de test (les 20% restants).
+
+
+
+Ensuite, déployez l'application en utilisant github + l'outil de streamlit (community cloud) et envoyer-moi l'URL.
+
+
+Recherche et découverte de streamlit
+
+pour créer l'appli demandé j'ai pensé qu'il serait mieux d'optimiser avant
+idée : Pouvoir choisir plusieurs datasets, donc on va commencer par faire une classe qui permet d'obtenir plusieurs datasets de scikit-learn
+
+ensuite il faudrait que pour chaque datasets / modeles choisis on sauvegarde les résultats obtenus pour éviter de refaire le calcul à chaque fois 
+
+Donc pour aujourd'hui créer une classe dans utils qui permet de charger quelques datasets 
+
+
+J5 
+Aujourd'hui je souhaite effectuer la première partie du site : afficher le T-SNE 
+étape 1 faire la base de la page
+étape 2 ajouter un menu déroulant pour choisir le dataset
+étape 3 choisir les paramètres et afficher le T-SNE
+voir comment afficher matplotlib 
+après plusieurs tests je me rend compte que c'est un peu long, je vais devoir essayer de comprendre comment fonctionne n_jobs dans sklearn pour essayer d'optimiser
+gestion des n_jobs dans Mytsne et dans myvotingclassifier
+
+Semaine 3
+Ce qui a été fait : 
+première partie du site afficher le T-SNE +choix des données 
+ce qui reste à faire:
+optimiser avec n_jobs 
+faire toute la 2eme partie du site 
+    # Idée un bouton pour activer et on pourrait avoir un menu où on choisit les modeles parmis une liste de modeles
+    # MyVotingClassifier prend ces modeles 
+    # on affiche les résultats de tous les modeles (MyVotingClassifier + les modeles de base) dans un tableau comparatif avec des scores d'évaluation (ex: accuracy, f1-score, etc.)
+    # on pourrait choisir ce qu'on veut afficher exactement (cocher les métriques d'évaluation qu'on veut voir)
+    
+
+fait opti faire 2eme parte 
+
+Modele | accuracy | F1-score 
+Individuel : SVM (Support Vector Machine)	95.75%	95.72%
+MyVotingClassifier (Source & Faits)	95.15%	95.12%
+MyVotingClassifier (Vote SOFT)	94.87%	94.84%
+Individuel : Random Forest	94.79%	94.74%
+MyVotingClassifier (Vote HARD)	94.66%	94.62%
+Individuel : KNN (K-Nearest Neighbors)	94.31%	94.30%
+Individuel : Régression Logistique	90.11%	89.97%
+Individuel : Ridge Classifier	84.35%	84.07%
+Individuel : Arbre de Décision	80.78%	80.46%
+Individuel : Naïf Bayes	55.97%	50.78% 
+
+résultats obtenus pour 10 000 données de MNIST 28x28
+
+résultats obtenus pour 30k données peu optimisé 30KMINST.csv 

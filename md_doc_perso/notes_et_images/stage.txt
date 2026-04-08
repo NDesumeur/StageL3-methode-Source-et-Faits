@@ -1,0 +1,24 @@
+Etapes du projet : 
+
+Premiere étape se familiariser avec scikit-learn et pyod 
+IDEE GLOBALE DU STAGE : 
+Avoir des algo LLM fiables 
+Les faire voter pour chaque donnée 
+utiliser la méthode source & faits pour calculer un coefficient pour chaque:
+on prend en compte que la majorité a bon 
+
+
+Toujours avoir des données différentes entre le train et le test 
+
+
+questionnement:
+
+Sur quelles données je dois utiliser pyod ??
+
+fait: 
+Lire toute la doc de scikit-learn | faire des tests de base 
+Lire toute la doc de pyod | faire un test avec scikit avec des données crées
+Comprendre les concept de score de precision et de recall et F1-score, ajout au test sur les élèves
+Comprendre le cross-validation et faire des test dessus (compliqué d'avoir quelque chose de correct)
+
+

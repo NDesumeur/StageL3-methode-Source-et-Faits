@@ -1,0 +1,11 @@
+﻿Algorithme,Accuracy (Train),Accuracy (Test),Précision (Train),Précision (Test),Rappel (Train),Rappel (Test),F1-Score (Train),F1-Score (Test)
+MyVotingClassifier (Vote HARD),100.00%,95.66%,100.00%,95.71%,100.00%,95.60%,100.00%,95.64%
+MyVotingClassifier (Vote SOFT),100.00%,96.07%,100.00%,96.12%,100.00%,96.02%,100.00%,96.06%
+MyVotingClassifier (Source & Faits),100.00%,96.07%,100.00%,96.11%,100.00%,96.03%,100.00%,96.06%
+KNN (K-Nearest Neighbors),100.00%,96.00%,100.00%,96.11%,100.00%,95.94%,100.00%,96.00%
+Random Forest,100.00%,95.95%,100.00%,95.93%,100.00%,95.91%,100.00%,95.92%
+Arbre de Décision,100.00%,84.24%,100.00%,84.01%,100.00%,84.02%,100.00%,84.00%
+SVM (Support Vector Machine),99.99%,97.25%,99.99%,97.24%,99.99%,97.24%,99.99%,97.24%
+Régression Logistique,93.44%,91.54%,93.34%,91.46%,93.31%,91.43%,93.32%,91.44%
+Ridge Classifier,86.42%,85.65%,86.59%,85.95%,86.09%,85.39%,86.13%,85.43%
+Naïf Bayes,64.02%,63.06%,72.06%,71.55%,62.99%,62.18%,61.42%,60.53%

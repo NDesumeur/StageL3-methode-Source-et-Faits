@@ -1,0 +1,47 @@
+ajouter RidgeClassifier voir comment bien le config 
+voir knn param 3, 5, 7
+
+Me faire un truc auto qui prend chaque méthode et qui renvoie les meilleurs paramètres pour le jeu de données choisi 
+
+
+
+
+voir comment fonctionne votingClassifier hard
+
+créer myVotingClassifier DONE 
+
+
+
+VotingClassifier DONE 
+fit DONE
+fit_transform DONE
+get_feature_names_out PASS
+get_metadata_routing PASS
+get_params DONE
+named_estimators PASS
+predict DONE
+predict_proba PASS
+score DONE
+set_output PASS
+set_params DONE
+set_score_request PASS
+transform DONE
+
+REGARDER UV 
+
+IDEE PERSO créer une classe qui prend un modèle et qui trouve les meilleurs paramètres pour un jeu de donnée choisi
+Normaliseur de donnée met les données sur des valeurs plus simples pour les modèles 
+
+
+
+
+
+Semaine 2:
+
+comprendre et recréer T-SNE pouvoir voir avec matplotlib 
+
+ajouter le mode Source&Faits à MyVotingClassifier 
+
+
+Mettre à jour doc mettre à jour doc classes
+mettre à jour fichiers tests supprimer les inutiles 
