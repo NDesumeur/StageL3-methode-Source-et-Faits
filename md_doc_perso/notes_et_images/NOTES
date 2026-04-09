@@ -137,3 +137,38 @@ Individuel : Naïf Bayes	55.97%	50.78%
 résultats obtenus pour 10 000 données de MNIST 28x28
 
 résultats obtenus pour 30k données peu optimisé 30KMINST.csv 
+
+
+//////////////////////
+A FAIRE : 
+Methode de detection d'anomalies ellipticenvelope
+Local outlier factor 
+Isolation forest 
+
+Déterminer le nombre d'outlier qvec les tests
+Le min 
+Le max 
+La moyenne 
+On fait un votingdetector soft hard s et f 
+Donc 9 votants
+Et ensuite faire un classement 
+
+Cas 1 tous les 0 plus 2 chiffres de chaque 
+Cas 2 50% des 0  2 chaque chiffre
+Cas 3 25%  des 0 1 chaque chiffre
+Cas 4 10% des 1 chaque chiffre
+Ensuite faire pareil pour chaque autre chiffre
+On obtient 40 classement, on utilise borda pour faire un classement final 
+Si egalité 2 points pour chaque candidat battu et un point pour chaque égalité
+
+Afficher sur app
+pour plus tard afficher un T-SNE ou on a des boutons pour afficher les outliers pour chaque classe et chaque algo 
+Pour pas buger essayer de stocker les modeles entrainés
+
+
+Jeudi 
+fait : voir comment fonctionnent Isolation forest, localoutlierfactor, ellipticenvelope et les ajouter dans trouve_params pour avoir les meilleurs paramètres 
+fichier de test basique sur MNIST 8x8 
+petit markdown qui explique les 3 modeles qu'on utilise
+
+idée faire une classe qui me permet de prendre des données et d'afficher comme voulu, on prend une classe, un pourcentage et un nombre de différent comme pour MNIST voulu

@@ -2,9 +2,11 @@ from sklearn.model_selection import GridSearchCV, RandomizedSearchCV
 from sklearn.svm import SVC, LinearSVC
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.linear_model import RidgeClassifier, LogisticRegression, SGDClassifier
-from sklearn.ensemble import RandomForestClassifier, ExtraTreesClassifier, AdaBoostClassifier, BaggingClassifier, GradientBoostingClassifier, HistGradientBoostingClassifier
+from sklearn.ensemble import RandomForestClassifier, ExtraTreesClassifier, AdaBoostClassifier, BaggingClassifier, GradientBoostingClassifier, HistGradientBoostingClassifier, IsolationForest
 from sklearn.tree import DecisionTreeClassifier
 from sklearn.naive_bayes import GaussianNB, MultinomialNB
+from sklearn.neighbors import LocalOutlierFactor
+from sklearn.covariance import EllipticEnvelope
 import time
 
 class Trouve_params:
@@ -84,8 +86,24 @@ class Trouve_params:
             LinearSVC: {
                 'C': [0.1, 1.0, 10.0],
                 'max_iter': [1000, 2000]
+            },
+            IsolationForest: {
+                'n_estimators': [50, 100, 200],
+                'contamination': ['auto', 0.05, 0.1, 0.2]
+            },
+            LocalOutlierFactor: {
+                'n_neighbors': [10, 20, 30],
+                'contamination': ['auto', 0.05, 0.1, 0.2],
+                'novelty': [True]
+            },
+            EllipticEnvelope: {
+                'contamination': [0.01, 0.05, 0.1, 0.2, 0.3],
+                'assume_centered': [True, False],
+                'support_fraction': [None, 0.7, 0.9]
+            },
+                'assume_centered': [True, False]
             }
-        }
+        
 
     def trouver_grille(self, model):
         """envoie la bonne grille en fonction du type de modèle"""

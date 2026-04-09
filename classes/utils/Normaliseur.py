@@ -1,5 +1,7 @@
 from sklearn.preprocessing import MinMaxScaler, StandardScaler, RobustScaler, MaxAbsScaler
+from sklearn.decomposition import PCA
 import numpy as np
+
 class Normaliseur:
     """
     Classe de normalisation des données. Permet de choisir entre plusieurs méthodes.
@@ -14,9 +16,11 @@ class Normaliseur:
         - robust : données avec valeurs extrêmes, ou quand on veut une normalisation plus robuste.
         - maxabs : données déjà centrées sur 0, mais avec différentes échelles.
     """
-    def __init__(self, methode='minmax'):
+    def __init__(self, methode='minmax', pca_components=None):
         self.methode = methode
+        self.pca_components = pca_components
         self.scaler = None
+        self.pca = None
         self._initialiser_scaler()
         
     def _initialiser_scaler(self):
@@ -69,12 +73,25 @@ class Normaliseur:
             self._initialiser_scaler()
             
         self.scaler.fit(X)
+        
+        if self.pca_components is not None:
+            # On doit transformer avant de fitter la PCA
+            X_scaled = self.scaler.transform(X)
+            self.pca = PCA(n_components=self.pca_components, random_state=42)
+            self.pca.fit(X_scaled)
+            
         return self
 
     def transform(self, X):
         if self.scaler is None:
             raise ValueError("Le scaler n'a pas été initialisé. Effectuez un fit() d'abord.")
-        return self.scaler.transform(X)
+            
+        X_t = self.scaler.transform(X)
+        
+        if self.pca is not None:
+            X_t = self.pca.transform(X_t)
+            
+        return X_t
 
     def fit_transform(self, X):
         self.fit(X)
