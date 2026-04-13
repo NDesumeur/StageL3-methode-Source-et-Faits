@@ -58,3 +58,57 @@ class ChargeurDonneesPourOutlier:
         y_custom = y_custom[indices_melange_final]
         
         return X_custom, y_custom, noms_features
+
+    @staticmethod
+    def charger_grille_anomalies(nom_dataset, random_state=42):
+        """
+        Pour chaque classe du dataset original, génère les 4 configurations demandées :
+        - 100% de données normales, 2 anomalies par classe
+        - 50% de données normales, 2 anomalies par classe
+        - 25% de données normales, 1 anomalie par classe
+        - 10% de données normales, 1 anomalie par classe
+        
+        Renvoie un dictionnaire structuré : 
+        {
+            'classe_0': {
+                '100_2': (X, y),
+                '50_2': (X, y),
+                ...
+            },
+            ...
+        }
+        """
+        X, y, noms_features, _ = ChargeurDonnees.charger_scikit(nom_dataset)
+        
+        y_np = y.to_numpy() if hasattr(y, 'to_numpy') else y
+        y_encoded = y_np.astype(str)
+        classes_uniques = np.unique(y_encoded)
+        
+        configurations = [
+            (100, 2),
+            (50, 2),
+            (25, 1),
+            (10, 1)
+        ]
+        
+        resultats_complets = {}
+        
+        for classe in sorted(classes_uniques):
+            resultats_complets[classe] = {}
+            for config in configurations:
+                pourcentage_normaux, nb_anomalies = config
+                
+                Cle_nom = f"{pourcentage_normaux}pct_{nb_anomalies}ano"
+                
+                # On réutilise la méthode charger classique
+                X_cust, y_cust, _ = ChargeurDonneesPourOutlier.charger(
+                    nom_dataset=nom_dataset,
+                    classe_normale=classe,
+                    pourcentage_normaux=pourcentage_normaux,
+                    nb_anomalies_par_classe=nb_anomalies,
+                    random_state=random_state
+                )
+                
+                resultats_complets[classe][Cle_nom] = (X_cust, y_cust)
+                
+        return resultats_complets, noms_features

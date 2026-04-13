@@ -172,3 +172,13 @@ fichier de test basique sur MNIST 8x8
 petit markdown qui explique les 3 modeles qu'on utilise
 
 idée faire une classe qui me permet de prendre des données et d'afficher comme voulu, on prend une classe, un pourcentage et un nombre de différent comme pour MNIST voulu
+
+
+Fait Borda.py qui gère borda
+faire tests complets sur données -> ça fonctionne bien 
+gestion des données dans chargeur données
+modif de MyTSNE pour tester un affichage pour les outliers mais ça fonctionne pas très bien ù
+3 fichiers de tests 
+prochaine étape faire le début de l'app 
+
+voir comment implémenter My-TSNE comment prendre les données ? quelles données afficher 

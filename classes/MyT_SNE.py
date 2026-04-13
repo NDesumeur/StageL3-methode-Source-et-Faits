@@ -1,4 +1,4 @@
-import numpy as np
+﻿import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.patheffects as PathEffects
 from sklearn.decomposition import PCA
@@ -288,3 +288,124 @@ class MyTSNE:
             return silhouette_score(self.embedding_, y, n_jobs=self.n_jobs)
         except TypeError:
             return silhouette_score(self.embedding_, y)
+
+    def afficher_anomalies(self, y_pred, y_true=None, titre_modele="Modèle", save_path=None, en_ligne=False):
+        """
+        Affiche l'embedding 2D en mettant en évidence les anomalies détectées par un modèle.
+        - y_pred : Prédictions du modèle (1 pour normal, -1 pour anomalie).
+        - y_true : Vraies étiquettes (optionnel) pour identifier les erreurs (Faux Positifs, etc.).
+        - titre_modele : Le nom du modèle pour le titre du graphique.
+        """
+        if self.embedding_ is None:
+            raise ValueError("Erreur : Le modèle n'a pas encore calculé de coordonnées. Lancez fit_transform() d'abord.")
+            
+        plt.figure(figsize=(10, 8))
+        
+        if y_true is not None:
+            # 4 catégories : Vrais Positifs (Normal correct), Vrais Négatifs (Anomalie correcte), 
+            # Faux Positifs (Anomalies ratées/Normal pris pour anomalie), Faux Négatifs
+            VP = self.embedding_[(y_true == 1) & (y_pred == 1)]
+            VN = self.embedding_[(y_true == -1) & (y_pred == -1)]
+            FP = self.embedding_[(y_true == 1) & (y_pred == -1)] # Fausse Alarme
+            FN = self.embedding_[(y_true == -1) & (y_pred == 1)] # Anomalie ratée
+            
+            plt.scatter(VP[:, 0], VP[:, 1], c='lightgray', alpha=0.5, s=30, label='Normal (Correct)')
+            if len(FP) > 0:
+                plt.scatter(FP[:, 0], FP[:, 1], c='orange', alpha=0.8, s=50, marker='X', label='Fausse Alarme (FP)')
+            if len(FN) > 0:
+                plt.scatter(FN[:, 0], FN[:, 1], c='purple', alpha=0.8, s=50, marker='v', label='Anomalie Ratée (FN)')
+            if len(VN) > 0:
+                plt.scatter(VN[:, 0], VN[:, 1], c='red', alpha=0.9, s=60, edgecolors='black', linewidths=1, label='Anomalie Détectée (Correct)')
+        else:
+            # Affichage basique avec juste la prédiction
+            normaux = self.embedding_[y_pred == 1]
+            anomalies = self.embedding_[y_pred == -1]
+            
+            plt.scatter(normaux[:, 0], normaux[:, 1], c='#1f77b4', alpha=0.4, s=30, label='Données Normales')
+            if len(anomalies) > 0:
+                plt.scatter(anomalies[:, 0], anomalies[:, 1], c='red', alpha=0.9, s=60, edgecolors='black', linewidths=1.5, label='Anomalies Détectées')
+        
+        plt.title(f"T-SNE : Prédictions - {titre_modele}", fontsize=16, fontweight='bold', pad=15)
+        plt.xlabel("Dimension 1", fontsize=12)
+        plt.ylabel("Dimension 2", fontsize=12)
+        plt.grid(True, linestyle='--', alpha=0.3)
+        plt.legend(loc='best', fontsize=11)
+        
+        plt.gca().spines['top'].set_visible(False)
+        plt.gca().spines['right'].set_visible(False)
+        
+        plt.tight_layout()
+        if save_path:
+            plt.savefig(save_path, dpi=300, bbox_inches='tight')
+            
+        fig = plt.gcf()
+        if not en_ligne:
+            plt.show()
+            
+        return fig
+
+    def afficher_interactif_anomalies(self, dict_predictions, y_true):
+        """
+        Affiche une fenêtre interactive hyper fluide avec le dataset complet en fond (ex: 10 classes) 
+        et un overlay interactif (cercles rouges) des anomalies trouvées.
+        """
+        if self.embedding_ is None:
+            raise ValueError("Erreur : Le modèle n'a pas encore calculé de coordonnées.")
+            
+        import matplotlib.pyplot as plt
+        from matplotlib.widgets import RadioButtons
+        import matplotlib.patheffects as PathEffects
+        
+        # Options du menu
+        options = ['Dataset Original'] + list(dict_predictions.keys())
+        
+        # Préparation de l'affichage global
+        fig, ax = plt.subplots(figsize=(14, 8))
+        plt.subplots_adjust(left=0.25, right=0.95, bottom=0.05, top=0.9)
+        ax.set_title("t-SNE : Visualisation des classes (0 à 9)", fontsize=16, fontweight='bold', pad=15)
+        
+        # 1. Dessiner le fond (les 10 classes) une seule fois
+        n_classes = len(np.unique(y_true))
+        cmap = plt.get_cmap('tab10' if n_classes <= 10 else 'viridis', n_classes)
+        
+        ax.scatter(self.embedding_[:, 0], self.embedding_[:, 1], 
+                   c=y_true, cmap=cmap, alpha=0.6, s=40, edgecolors='none')
+        
+        # Annotations (les numéros au centre)
+        for classe in np.unique(y_true):
+            center = np.median(self.embedding_[y_true == classe], axis=0)
+            txt = ax.text(center[0], center[1], str(classe), fontsize=16, fontweight='bold', c='black', ha='center', va='center')
+            txt.set_path_effects([PathEffects.withStroke(linewidth=3, foreground='white')])
+            
+        # 2. Créer un calque vide pour les anomalies (très rapide à mettre à jour)
+        scatter_anomalies = ax.scatter([], [], facecolors='none', edgecolors='red', s=150, linewidths=2, label="Anomalie ciblée")
+        legend_base = ax.legend(handles=[scatter_anomalies], loc='upper right')
+        legend_base.set_visible(False)
+        
+        ax.axis('off') # Retire la grille et le cadre brut, rend le t-SNE plus beau
+           
+        # 3. Interface Radio Boutons
+        ax_radio = plt.axes([0.02, 0.4, 0.20, 0.4], facecolor='#f8f9fa')
+        ax_radio.set_title("Analyse par Modèle :", fontweight='bold', pad=10)
+        self._radio = RadioButtons(ax_radio, options, activecolor='#1f77b4')
+        
+        # 4. Fonction de mise à jour quasi-instantanée
+        def on_click(label):
+            if label == 'Dataset Original':
+                scatter_anomalies.set_offsets(np.empty((0, 2))) # Vider l'overlay
+                legend_base.set_visible(False)
+                ax.set_title("t-SNE : Visualisation des données normales", fontsize=16, fontweight='bold', pad=15)
+            else:
+                y_pred = dict_predictions[label]
+                # Sélection dynamique des anomalies sans tout redessiner
+                anomalies_coords = self.embedding_[y_pred == -1]
+                scatter_anomalies.set_offsets(anomalies_coords) 
+                legend_base.set_visible(True)
+                ax.set_title(f"t-SNE : {len(anomalies_coords)} anomalies ciblées par {label}", fontsize=16, fontweight='bold', pad=15)
+            
+            fig.canvas.draw_idle()
+
+        self._radio.on_clicked(on_click)
+        plt.show()
+
+
