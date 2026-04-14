@@ -62,7 +62,7 @@ def executer_evaluation(classes_a_tester, configs_a_tester):
         total = len(combinaisons_a_faire)
         
         for i, (classe_cible, nom_config, cle) in enumerate(combinaisons_a_faire):
-            texte_statut.text(f"Calcul en direct : Classe {classe_cible} | Config {nom_config} ({i+1}/{total})")
+            texte_statut.text(f"Calcul : Classe {classe_cible} | Config {nom_config} ({i+1}/{total})")
             
             configs = grille_complete.get(classe_cible, {})
             if nom_config not in configs:
@@ -176,6 +176,9 @@ def main():
     st.set_page_config(page_title="Evaluation d'Anomalies Borda & T-SNE", layout="wide")
     st.title("Comparatif des Modèles (Train vs Test)")
     
+    if "donnees_eval" not in st.session_state:
+        st.session_state.donnees_eval = None
+
     etat_cache = "Données sauvegardées localement" if os.path.exists(CACHE_FILE) else "Cache vide (Calculs à venir)"
     st.markdown(f"Ajustez vos filtres dans le menu à gauche, puis cliquez sur **Lancer l'évaluation**. *({etat_cache})*")
 
@@ -192,18 +195,22 @@ def main():
     if bouton_vider:
         if os.path.exists(CACHE_FILE):
             os.remove(CACHE_FILE)
+            st.session_state.donnees_eval = None
             st.sidebar.success("Toutes les sauvegardes ont été purgées !")
             st.rerun()
 
     if bouton_lancer:
         classes_a_tester = classes_possibles if choix_classe == "Toutes les Classes" else [choix_classe]
         configs_a_tester = configs_possibles if choix_config == "Toutes les Configurations" else [choix_config]
-        
-        donnees_entrainees = executer_evaluation(classes_a_tester, configs_a_tester)
-        
-        if not donnees_entrainees:
+        donnees = executer_evaluation(classes_a_tester, configs_a_tester)
+        if not donnees:
             st.error("Génération des données échouée.")
-            return
+            st.session_state.donnees_eval = None
+        else:
+            st.session_state.donnees_eval = donnees
+
+    if st.session_state.donnees_eval:
+        donnees_entrainees = st.session_state.donnees_eval
 
         noms_candidats = list(donnees_entrainees[0]['metriques'].keys())
         liste_scores_config_pour_borda = []
@@ -269,19 +276,22 @@ def main():
 
         if len(donnees_entrainees) == 1:
             st.markdown("---")
-            st.subheader("Visualisation T-SNE des Anomalies (Données de Test)")
+            st.subheader("Visualisation T-SNE Interactive (Données de Test)")
             
             passage = donnees_entrainees[0]
             details = passage.get('details_visu', None)
             
             if details is None:
-                st.warning("Le cache actuel ne contient pas les données pour la visualisation T-SNE. Essaye de **Vider les données (Nettoyer cache)** et relancer.")
+                st.warning("Le cache ne contient pas les points T-SNE. Cliquez sur 'Vider les données' puis relancez.")
             else:
                 X_test_norm = details['X_test_norm']
                 y_test_true = details['y_test']
                 preds_dict = details['preds']
                 
-                modele_visu = st.selectbox("Choisir le modèle à analyser :", list(preds_dict.keys()))
+                modele_visu = st.selectbox(
+                    "Choisir le modèle à visualiser (Met à jour le graphique) :",
+                    list(preds_dict.keys())
+                )
                 
                 @st.cache_data
                 def compute_tsne(X_data):
@@ -289,25 +299,31 @@ def main():
                     perp = min(30, max(1, n_samples - 1))
                     return TSNE(n_components=2, perplexity=perp, random_state=42).fit_transform(X_data)
                     
-                X_tsne = compute_tsne(X_test_norm)
+                with st.spinner("Calcul des coordonnées T-SNE..."):
+                    X_tsne = compute_tsne(X_test_norm)
+                
                 y_pred = preds_dict[modele_visu]
                 
-                fig, ax = plt.subplots(figsize=(9, 6))
+                fig, ax = plt.subplots(figsize=(10, 6))
                 
                 idx_norm = (y_pred == 1)
-                ax.scatter(X_tsne[idx_norm, 0], X_tsne[idx_norm, 1], c='#1f77b4', label='Prédit Normal', alpha=0.7, edgecolors='w', s=50)
+                ax.scatter(X_tsne[idx_norm, 0], X_tsne[idx_norm, 1], c='#bbd8eb', label='Prédit Normal (Sain)', alpha=0.6, edgecolors='w', s=60)
                 
                 idx_anom = (y_pred == -1)
-                ax.scatter(X_tsne[idx_anom, 0], X_tsne[idx_anom, 1], c='#d62728', label='Prédit Anomalie', marker='X', s=90)
+                ax.scatter(X_tsne[idx_anom, 0], X_tsne[idx_anom, 1], c='#d62728', label='Prédit Anomalie par Modèle', marker='X', s=100)
                 
                 idx_true_anom = (y_test_true == -1)
                 if np.any(idx_true_anom):
                     ax.scatter(X_tsne[idx_true_anom, 0], X_tsne[idx_true_anom, 1], 
                                facecolors='none', edgecolors='black', s=200, 
-                               label='Vraie Anomalie', linewidths=1.5, linestyle='--')
+                               label='Vraie Anomalie (Ground Truth)', linewidths=2, linestyle='--')
                     
-                ax.set_title(f"Projection 2D T-SNE - {modele_visu}\nClasse {choix_classe} | Config {choix_config}")
-                ax.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
+                ax.set_title(f"Analyse des Décisions - {modele_visu}", fontsize=14, pad=15)
+                
+                ax.grid(True, linestyle=":", alpha=0.6)
+                ax.spines['top'].set_visible(False)
+                ax.spines['right'].set_visible(False)
+                ax.legend(bbox_to_anchor=(1.05, 1), loc='upper left', frameon=True, shadow=True)
                 plt.tight_layout()
                 
                 st.pyplot(fig)
