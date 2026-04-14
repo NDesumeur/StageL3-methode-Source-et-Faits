@@ -286,7 +286,8 @@ def main():
 
         if len(donnees_entrainees) == 1:
             st.markdown("---")
-            st.subheader(f"Visualisation T-SNE Interactive (Train + Test Globaux)")
+            st.subheader(f"Visualisation T-SNE")
+            st.info("Le graphique utilise les données normalisées complètes (train + test) pour une meilleure observation globale.")
             
             passage = donnees_entrainees[0]
             details = passage.get('details_visu', None)
