@@ -22,6 +22,7 @@ from classes.utils.ChargeurDonneesPourOutlier import ChargeurDonneesPourOutlier
 from classes.utils.Normaliseur import Normaliseur
 from classes.utils.Trouve_params import Trouve_params
 from classes.MyVotingClassifier import MyVotingClassifier
+from classes.MyVotingOutlier import MyVotingOutlier
 from classes.utils.Borda import CalculateurBorda
 
 CACHE_FILE = os.path.join(os.path.dirname(__file__), "cache_evaluations.joblib")
@@ -309,7 +310,7 @@ def main():
                 def compute_tsne(X_data):
                     n_samples = X_data.shape[0]
                     perp = min(30, max(1, n_samples - 1))
-                    return TSNE(n_components=2, perplexity=perp, random_state=42).fit_transform(X_data)
+                    return MyTSNE(n_components=2, perplexity=perp, random_state=42).fit_transform(X_data)
                     
                 with st.spinner("Calcul des coordonnées T-SNE..."):
                     X_tsne = compute_tsne(X_norm)
