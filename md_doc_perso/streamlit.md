@@ -25,7 +25,7 @@ Fonctions permettant de structurer l'affichage plutôt que de tout empiler verti
 ## 4. Gestion des performances et de l'état
 Étant donné que la page se recharge à chaque clic, il est impératif d'utiliser des mécanismes de sauvegarde pour les processus coûteux.
 
-**A) Le Cache (`@st.cache_data`)**
+**Le Cache (`@st.cache_data`)**
 Un décorateur de fonction qui conserve le retour de celle-ci en mémoire. Le code interne ne sera exécuté qu'une seule fois tant que les arguments d'entrée ne changent pas.
 ```python
 @st.cache_data
@@ -34,7 +34,7 @@ def charger_csv():
     return pd.read_csv("data.csv")
 ```
 
-**B) L'état de session (`st.session_state`)**
+**L'état de session (`st.session_state`)**
 Permet de définir des variables persistantes qui survivront au rechargement de la page. Indispensable pour contrôler la séquence ou l'affichage de menus conditionnels.
 ```python
 # Initialisation de la variable si elle n'existe pas encore

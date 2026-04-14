@@ -5,8 +5,6 @@ import warnings
 import numpy as np
 import pandas as pd
 import joblib
-import matplotlib.pyplot as plt
-from sklearn.manifold import TSNE
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
@@ -24,8 +22,7 @@ from classes.utils.Trouve_params import Trouve_params
 from classes.MyVotingOutlier import MyVotingOutlier
 from classes.utils.Borda import CalculateurBorda
 
-# Changement du nom du cache pour éviter les conflits avec l'ancienne structure (qui n'avait pas les details visu)
-CACHE_FILE = os.path.join(os.path.dirname(__file__), "cache_evaluations_v2.joblib")
+CACHE_FILE = os.path.join(os.path.dirname(__file__), "cache_evaluations.joblib")
 
 def extraire_metriques(y_true, y_pred):
     return {
@@ -85,26 +82,23 @@ def executer_evaluation(classes_a_tester, configs_a_tester):
             chercheur_pca = Trouve_params(X_train_pca, y_train, cv=3, verbose=0)
             
             IF_opti = chercheur_norm.trouve_params(IsolationForest(random_state=42))
-            pred_if = IF_opti.predict(X_test_norm)
             m_if = {
                 'train': extraire_metriques(y_train, IF_opti.predict(X_train_norm)),
-                'test': extraire_metriques(y_test, pred_if)
+                'test': extraire_metriques(y_test, IF_opti.predict(X_test_norm))
             }
             
             LOF_opti = chercheur_norm.trouve_params(LocalOutlierFactor(novelty=True))
-            pred_lof = LOF_opti.predict(X_test_norm)
             m_lof = {
                 'train': extraire_metriques(y_train, LOF_opti.predict(X_train_norm)),
-                'test': extraire_metriques(y_test, pred_lof)
+                'test': extraire_metriques(y_test, LOF_opti.predict(X_test_norm))
             }
             
             EE_base_opti = chercheur_pca.trouve_params(EllipticEnvelope(random_state=42))
             EE_pipeline = Pipeline([('pca', PCA(n_components=0.95, random_state=42)), ('ee', EE_base_opti)])
             EE_pipeline.fit(X_train_norm)
-            pred_ee = EE_pipeline.predict(X_test_norm)
             m_ee = {
                 'train': extraire_metriques(y_train, EE_pipeline.predict(X_train_norm)),
-                'test': extraire_metriques(y_test, pred_ee)
+                'test': extraire_metriques(y_test, EE_pipeline.predict(X_test_norm))
             }
             
             m_min = {'train':{}, 'test':{}}
@@ -119,26 +113,23 @@ def executer_evaluation(classes_a_tester, configs_a_tester):
 
             vote_hard = MyVotingOutlier(estimators=[('if', IF_opti), ('lof', LOF_opti), ('ee', EE_pipeline)], voting='hard', verbose=False)
             vote_hard.fit(X_train_norm, y_train)
-            pred_hard = vote_hard.predict(X_test_norm)
             m_hard = {
                 'train': extraire_metriques(y_train, vote_hard.predict(X_train_norm)),
-                'test': extraire_metriques(y_test, pred_hard)
+                'test': extraire_metriques(y_test, vote_hard.predict(X_test_norm))
             }
             
             vote_soft = MyVotingOutlier(estimators=[('if', IF_opti), ('lof', LOF_opti), ('ee', EE_pipeline)], voting='soft', verbose=False)
             vote_soft.fit(X_train_norm, y_train)
-            pred_soft = vote_soft.predict(X_test_norm)
             m_soft = {
                 'train': extraire_metriques(y_train, vote_soft.predict(X_train_norm)),
-                'test': extraire_metriques(y_test, pred_soft)
+                'test': extraire_metriques(y_test, vote_soft.predict(X_test_norm))
             }
             
             vote_sf = MyVotingOutlier(estimators=[('if', IF_opti), ('lof', LOF_opti), ('ee', EE_pipeline)], voting='S&F', verbose=False, sf_metric='f1')
             vote_sf.fit(X_train_norm, y_train)
-            pred_sf = vote_sf.predict(X_test_norm)
             m_sf = {
                 'train': extraire_metriques(y_train, vote_sf.predict(X_train_norm)),
-                'test': extraire_metriques(y_test, pred_sf)
+                'test': extraire_metriques(y_test, vote_sf.predict(X_test_norm))
             }
             
             res = {
@@ -148,18 +139,6 @@ def executer_evaluation(classes_a_tester, configs_a_tester):
                     'Isolation Forest': m_if, 'Local Outlier Factor': m_lof, 'Elliptic Envelope': m_ee,
                     'Modèle MIN': m_min, 'Modèle MAX': m_max, 'Modèle AVG': m_avg,
                     'Vote HARD': m_hard, 'Vote SOFT': m_soft, 'Vote S&F': m_sf
-                },
-                'details_visu': {
-                    'X_test_norm': X_test_norm,
-                    'y_test': y_test,
-                    'preds': {
-                        'Isolation Forest': pred_if,
-                        'Local Outlier Factor': pred_lof,
-                        'Elliptic Envelope': pred_ee,
-                        'Vote HARD': pred_hard,
-                        'Vote SOFT': pred_soft,
-                        'Vote S&F': pred_sf
-                    }
                 }
             }
             
@@ -174,7 +153,7 @@ def executer_evaluation(classes_a_tester, configs_a_tester):
     return resultats_finaux
 
 def main():
-    st.set_page_config(page_title="Evaluation d'Anomalies Borda & T-SNE", layout="wide")
+    st.set_page_config(page_title="Evaluation d'Anomalies Borda", layout="wide")
     st.title("Comparatif des Modèles (Train vs Test)")
     
     etat_cache = "Données sauvegardées localement" if os.path.exists(CACHE_FILE) else "Cache vide (Calculs à venir)"
@@ -258,64 +237,13 @@ def main():
                                    .format(precision=1),
                      use_container_width=True)
 
-        col1, col2 = st.columns([1, 2])
-        with col1:
-            csv = df_borda.to_csv(sep=';', decimal=',').encode('utf-8')
-            st.download_button(
-                label="Télécharger JSON / CSV",
-                data=csv,
-                file_name=f'Extraction_Metriques_{choix_classe}_{choix_config}.csv',
-                mime='text/csv',
-            )
-
-        # -------------------------------------------------------------
-        # MODULE VISUALISATION T-SNE (Apparaît si 1 classe & 1 config)
-        # -------------------------------------------------------------
-        if len(donnees_entrainees) == 1:
-            st.markdown("---")
-            st.subheader(" Visualisation T-SNE des Anomalies (Données de Test)")
-            
-            passage = donnees_entrainees[0]
-            details = passage['details_visu']
-            X_test_norm = details['X_test_norm']
-            y_test_true = details['y_test']
-            preds_dict = details['preds']
-            
-            # Choix interactif du modèle grâce au Selectbox
-            modele_visu = st.selectbox("Choisir le modèle à analyser :", list(preds_dict.keys()))
-            
-            # Optimisation locale Streamlit pour éviter de recalculer T-SNE à chaque changement de selectbox
-            @st.cache_data
-            def compute_tsne(X_data):
-                n_samples = X_data.shape[0]
-                perp = min(30, max(1, n_samples - 1))
-                return TSNE(n_components=2, perplexity=perp, random_state=42).fit_transform(X_data)
-                
-            X_tsne = compute_tsne(X_test_norm)
-            y_pred = preds_dict[modele_visu]
-            
-            fig, ax = plt.subplots(figsize=(9, 6))
-            
-            # Affichage des points normaux
-            idx_norm = (y_pred == 1)
-            ax.scatter(X_tsne[idx_norm, 0], X_tsne[idx_norm, 1], c='#1f77b4', label='Prédit Normal', alpha=0.7, edgecolors='w', s=50)
-            
-            # Affichage des anomalies prédites
-            idx_anom = (y_pred == -1)
-            ax.scatter(X_tsne[idx_anom, 0], X_tsne[idx_anom, 1], c='#d62728', label='Prédit Anomalie', marker='X', s=90)
-            
-            # Accentuation visuelle des VRAIES anomalies (Ground Truth)
-            idx_true_anom = (y_test_true == -1)
-            if np.any(idx_true_anom):
-                ax.scatter(X_tsne[idx_true_anom, 0], X_tsne[idx_true_anom, 1], 
-                           facecolors='none', edgecolors='black', s=200, 
-                           label='Vraie Anomalie', linewidths=1.5, linestyle='--')
-                
-            ax.set_title(f"Projection 2D T-SNE - {modele_visu}\nClasse {choix_classe} | Config {choix_config}")
-            ax.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
-            plt.tight_layout()
-            
-            st.pyplot(fig)
+        csv = df_borda.to_csv(sep=';', decimal=',').encode('utf-8')
+        st.download_button(
+            label="Télécharger ce tableau en format Excel / CSV",
+            data=csv,
+            file_name=f'Extraction_Metriques_{choix_classe}_{choix_config}.csv',
+            mime='text/csv',
+        )
 
 if __name__ == "__main__":
     main()
