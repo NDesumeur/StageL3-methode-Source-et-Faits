@@ -301,7 +301,7 @@ def main():
                 
   
                 modele_visu = st.selectbox(
-                    "Choisir le modèle à visualiser (Met à jour le graphique) :",
+                    "Choisir le modèle à visualiser :",
                     list(preds_dict.keys())
                 )
                 
@@ -328,7 +328,7 @@ def main():
                 if np.any(idx_true_anom):
                     ax.scatter(X_tsne[idx_true_anom, 0], X_tsne[idx_true_anom, 1], 
                                facecolors='none', edgecolors='black', s=200, 
-                               label='Vraie Anomalie (Ground Truth)', linewidths=2, linestyle='--')
+                               label='Vraie Anomalie', linewidths=2, linestyle='--')
                     
                 ax.set_title(f"Analyse des Décisions - {modele_visu}", fontsize=14, pad=15)
                 
