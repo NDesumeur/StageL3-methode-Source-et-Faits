@@ -36,7 +36,6 @@ def executer_evaluation(classes_a_tester, configs_a_tester):
     warnings.simplefilter("ignore", UserWarning)
     warnings.simplefilter("ignore", RuntimeWarning)
     
-    # 1. Sauvegarde et Local Storage (Le Cache sur le Disque !)
     if os.path.exists(CACHE_FILE):
         cache_resultats = joblib.load(CACHE_FILE)
     else:
@@ -55,7 +54,6 @@ def executer_evaluation(classes_a_tester, configs_a_tester):
             else:
                 combinaisons_a_faire.append((c, conf, cle))
                 
-    # S'il manque des données, on les calcule et on ajoute au cache
     if combinaisons_a_faire:
         barre = st.progress(0)
         texte_statut = st.empty()
@@ -83,21 +81,18 @@ def executer_evaluation(classes_a_tester, configs_a_tester):
             chercheur_norm = Trouve_params(X_train_norm, y_train, cv=3, verbose=0)
             chercheur_pca = Trouve_params(X_train_pca, y_train, cv=3, verbose=0)
             
-            # IF
             IF_opti = chercheur_norm.trouve_params(IsolationForest(random_state=42))
             m_if = {
                 'train': extraire_metriques(y_train, IF_opti.predict(X_train_norm)),
                 'test': extraire_metriques(y_test, IF_opti.predict(X_test_norm))
             }
             
-            # LOF (novelty=True autorise le .predict() sur le train, permet d'avoir la métrique Train)
             LOF_opti = chercheur_norm.trouve_params(LocalOutlierFactor(novelty=True))
             m_lof = {
                 'train': extraire_metriques(y_train, LOF_opti.predict(X_train_norm)),
                 'test': extraire_metriques(y_test, LOF_opti.predict(X_test_norm))
             }
             
-            # EE
             EE_base_opti = chercheur_pca.trouve_params(EllipticEnvelope(random_state=42))
             EE_pipeline = Pipeline([('pca', PCA(n_components=0.95, random_state=42)), ('ee', EE_base_opti)])
             EE_pipeline.fit(X_train_norm)
@@ -106,7 +101,6 @@ def executer_evaluation(classes_a_tester, configs_a_tester):
                 'test': extraire_metriques(y_test, EE_pipeline.predict(X_test_norm))
             }
             
-            # MIN MAX AVG sur les 2 phases
             m_min = {'train':{}, 'test':{}}
             m_max = {'train':{}, 'test':{}}
             m_avg = {'train':{}, 'test':{}}
@@ -117,7 +111,6 @@ def executer_evaluation(classes_a_tester, configs_a_tester):
                     m_max[phase][k] = max(vals)
                     m_avg[phase][k] = sum(vals)/3
 
-            # VOTES
             vote_hard = MyVotingOutlier(estimators=[('if', IF_opti), ('lof', LOF_opti), ('ee', EE_pipeline)], voting='hard', verbose=False)
             vote_hard.fit(X_train_norm, y_train)
             m_hard = {
@@ -153,7 +146,6 @@ def executer_evaluation(classes_a_tester, configs_a_tester):
             resultats_finaux.append(res)
             barre.progress((i + 1) / total)
             
-        # Enregistrer massivement sur le disque
         joblib.dump(cache_resultats, CACHE_FILE)
         barre.empty()
         texte_statut.empty()
@@ -164,7 +156,7 @@ def main():
     st.set_page_config(page_title="Evaluation d'Anomalies Borda", layout="wide")
     st.title("Comparatif des Modèles (Train vs Test)")
     
-    etat_cache = "Données sauvegardées localement" if os.path.exists(CACHE_FILE) else "❌ Cache vide (Calculs à venir)"
+    etat_cache = "Données sauvegardées localement" if os.path.exists(CACHE_FILE) else "Cache vide (Calculs à venir)"
     st.markdown(f"Ajustez vos filtres dans le menu à gauche, puis cliquez sur **Lancer l'évaluation**. *({etat_cache})*")
 
     classes_possibles = [str(i) for i in range(10)]
@@ -193,20 +185,25 @@ def main():
             st.error("Génération des données échouée.")
             return
 
-        # Construction du Tableau Train vs Test & Borda
         noms_candidats = list(donnees_entrainees[0]['metriques'].keys())
         liste_scores_config_pour_borda = []
-        historique = {c: {'train': {'f1': [], 'precision': []}, 'test': {'f1': [], 'precision': []}} for c in noms_candidats}
+        historique = {c: {'train': {'f1': [], 'precision': [], 'recall': [], 'accuracy': []}, 
+                          'test': {'f1': [], 'precision': [], 'recall': [], 'accuracy': []}} for c in noms_candidats}
         
         for passage in donnees_entrainees:
             dict_borda = {}
             for candidat, ses_metriques in passage['metriques'].items():
-                dict_borda[candidat] = ses_metriques['test']['f1']  # Borda se base sur le Test Dataset
+                dict_borda[candidat] = ses_metriques['test']['f1']
                 
                 historique[candidat]['train']['f1'].append(ses_metriques['train']['f1'])
                 historique[candidat]['train']['precision'].append(ses_metriques['train']['precision'])
+                historique[candidat]['train']['recall'].append(ses_metriques['train']['recall'])
+                historique[candidat]['train']['accuracy'].append(ses_metriques['train']['accuracy'])
+                
                 historique[candidat]['test']['f1'].append(ses_metriques['test']['f1'])
                 historique[candidat]['test']['precision'].append(ses_metriques['test']['precision'])
+                historique[candidat]['test']['recall'].append(ses_metriques['test']['recall'])
+                historique[candidat]['test']['accuracy'].append(ses_metriques['test']['accuracy'])
                 
             liste_scores_config_pour_borda.append(dict_borda)
 
@@ -223,6 +220,10 @@ def main():
                 "F1 Test (%)": round(np.mean(historique[candidat]['test']['f1']), 1),
                 "Pré Train (%)": round(np.mean(historique[candidat]['train']['precision']), 1),
                 "Pré Test (%)": round(np.mean(historique[candidat]['test']['precision']), 1),
+                "Rap Train (%)": round(np.mean(historique[candidat]['train']['recall']), 1),
+                "Rap Test (%)": round(np.mean(historique[candidat]['test']['recall']), 1),
+                "Acc Train (%)": round(np.mean(historique[candidat]['train']['accuracy']), 1),
+                "Acc Test (%)": round(np.mean(historique[candidat]['test']['accuracy']), 1),
             })
             position += 1
 
