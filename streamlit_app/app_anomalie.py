@@ -6,7 +6,7 @@ import numpy as np
 import pandas as pd
 import joblib
 import matplotlib.pyplot as plt
-from sklearn.manifold import TSNE
+from classes.MyT_SNE import MyTSNE
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
@@ -21,10 +21,10 @@ from sklearn.decomposition import PCA
 from classes.utils.ChargeurDonneesPourOutlier import ChargeurDonneesPourOutlier
 from classes.utils.Normaliseur import Normaliseur
 from classes.utils.Trouve_params import Trouve_params
-from classes.MyVotingOutlier import MyVotingOutlier
+from classes.MyVotingClassifier import MyVotingClassifier
 from classes.utils.Borda import CalculateurBorda
 
-CACHE_FILE = os.path.join(os.path.dirname(__file__), "cache_evaluations_v2.joblib")
+CACHE_FILE = os.path.join(os.path.dirname(__file__), "cache_evaluations.joblib")
 
 def extraire_metriques(y_true, y_pred):
     return {
