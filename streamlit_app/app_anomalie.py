@@ -191,7 +191,6 @@ def main():
         st.session_state.donnees_eval = None
 
     etat_cache = "Données sauvegardées localement" if os.path.exists(CACHE_FILE) else "Cache vide (Calculs à venir)"
-    st.markdown(f"Ajustez vos filtres dans le menu à gauche, puis cliquez sur **Lancer l'évaluation**. *({etat_cache})*")
 
     classes_possibles = [str(i) for i in range(10)]
     configs_possibles = ['100pct_2ano', '50pct_2ano', '25pct_1ano', '10pct_1ano']
