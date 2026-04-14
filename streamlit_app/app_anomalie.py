@@ -184,7 +184,8 @@ def executer_evaluation(classes_a_tester, configs_a_tester):
 
 def main():
     st.set_page_config(page_title="Evaluation d'Anomalies Borda & T-SNE", layout="wide")
-    st.title("Comparatif des Modèles (Train vs Test)")
+    st.title("Comparatif des Modèles d'Anomalies - Classement Borda & Visualisation T-SNE")
+    st.info("Pour afficher les résultats, sélectionnez une classe et une configuration dans le menu à gauche, puis cliquez sur 'Lancer l'évaluation'. Vous pouvez aussi choisir 'Toutes les Classes' et 'Toutes les Configurations' pour une évaluation complète (cela prendra plus de temps).\n\nPour que le T-SNE soit affiché, il faut choisir une classe et une configuration spécifiques (pas 'Toutes').")
     
     if "donnees_eval" not in st.session_state:
         st.session_state.donnees_eval = None
@@ -298,8 +299,7 @@ def main():
                 y_true = details.get('y_true', details.get('y_test'))
                 preds_dict = details['preds']
                 
-                st.info(f"💡 Affichage de l'ensemble du jeu de données pour cette configuration précise (Train + Test, **{X_norm.shape[0]} points** au total). Si tu es sur 10%, il est normal d'avoir peu de points (seulement 10% d'une seule classe de Digits).")
-
+  
                 modele_visu = st.selectbox(
                     "Choisir le modèle à visualiser (Met à jour le graphique) :",
                     list(preds_dict.keys())
