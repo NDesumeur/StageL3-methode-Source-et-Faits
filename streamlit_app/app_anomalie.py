@@ -186,7 +186,7 @@ def executer_evaluation(classes_a_tester, configs_a_tester):
 def main():
     st.set_page_config(page_title="Evaluation d'Anomalies Borda & T-SNE", layout="wide")
     st.title("Comparatif des Modèles d'Anomalies - Classement Borda & Visualisation T-SNE")
-    st.info("Pour afficher les résultats, sélectionnez une classe et une configuration dans le menu à gauche, puis cliquez sur 'Lancer l'évaluation'. Vous pouvez aussi choisir 'Toutes les Classes' et 'Toutes les Configurations' pour une évaluation complète (cela prendra plus de temps).\n\nPour que le T-SNE soit affiché, il faut choisir une classe et une configuration spécifiques (pas 'Toutes').")
+    st.info("Pour afficher les résultats, il faut selectionner une classe et une configuration dans le menu à gauche, puis cliquer sur 'Lancer l'évaluation'. Ont peut aussi choisir 'Toutes les Classes' et 'Toutes les Configurations' pour une évaluation complète (cela prendra plus de temps).\n\nPour que le T-SNE soit affiché, il faut choisir une classe et une configuration spécifiques (pas 'Toutes').")
     
     if "donnees_eval" not in st.session_state:
         st.session_state.donnees_eval = None
