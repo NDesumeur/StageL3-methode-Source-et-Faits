@@ -218,12 +218,12 @@ def main():
                 "Points Borda": points,
                 "F1 Train (%)": round(np.mean(historique[candidat]['train']['f1']), 1),
                 "F1 Test (%)": round(np.mean(historique[candidat]['test']['f1']), 1),
-                "Pré Train (%)": round(np.mean(historique[candidat]['train']['precision']), 1),
-                "Pré Test (%)": round(np.mean(historique[candidat]['test']['precision']), 1),
-                "Rap Train (%)": round(np.mean(historique[candidat]['train']['recall']), 1),
-                "Rap Test (%)": round(np.mean(historique[candidat]['test']['recall']), 1),
-                "Acc Train (%)": round(np.mean(historique[candidat]['train']['accuracy']), 1),
-                "Acc Test (%)": round(np.mean(historique[candidat]['test']['accuracy']), 1),
+                "Précision Train (%)": round(np.mean(historique[candidat]['train']['precision']), 1),
+                "Précision Test (%)": round(np.mean(historique[candidat]['test']['precision']), 1),
+                "Rappel Train (%)": round(np.mean(historique[candidat]['train']['recall']), 1),
+                "Rappel Test (%)": round(np.mean(historique[candidat]['test']['recall']), 1),
+                "Accuracy Train (%)": round(np.mean(historique[candidat]['train']['accuracy']), 1),
+                "Accuracy Test (%)": round(np.mean(historique[candidat]['test']['accuracy']), 1),
             })
             position += 1
 
