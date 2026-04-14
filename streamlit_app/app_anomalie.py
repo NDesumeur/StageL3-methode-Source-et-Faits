@@ -93,7 +93,11 @@ def executer_evaluation(classes_a_tester, configs_a_tester):
             }
             
             LOF_opti = chercheur_norm.trouve_params(LocalOutlierFactor(novelty=True))
-            pred_lof_train = LOF_opti.predict(X_train_norm)
+            # Utilisation de fit_predict pour le Train, predict pour le Test (Evite l'erreur distance=0 sur soi-même)
+            # LOF en novelty=True ne possède PAS de .fit_predict. Il faut recréer un objet temporaire sans novelty.
+            lof_pour_train = LocalOutlierFactor(n_neighbors=LOF_opti.n_neighbors, contamination=LOF_opti.contamination)
+            pred_lof_train = lof_pour_train.fit_predict(X_train_norm)
+            
             pred_lof_test = LOF_opti.predict(X_test_norm)
             m_lof = {
                 'train': extraire_metriques(y_train, pred_lof_train),
