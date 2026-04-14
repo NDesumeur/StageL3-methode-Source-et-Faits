@@ -84,26 +84,29 @@ def executer_evaluation(classes_a_tester, configs_a_tester):
             chercheur_pca = Trouve_params(X_train_pca, y_train, cv=3, verbose=0)
             
             IF_opti = chercheur_norm.trouve_params(IsolationForest(random_state=42))
-            pred_if = IF_opti.predict(X_test_norm)
+            pred_if_train = IF_opti.predict(X_train_norm)
+            pred_if_test = IF_opti.predict(X_test_norm)
             m_if = {
-                'train': extraire_metriques(y_train, IF_opti.predict(X_train_norm)),
-                'test': extraire_metriques(y_test, pred_if)
+                'train': extraire_metriques(y_train, pred_if_train),
+                'test': extraire_metriques(y_test, pred_if_test)
             }
             
             LOF_opti = chercheur_norm.trouve_params(LocalOutlierFactor(novelty=True))
-            pred_lof = LOF_opti.predict(X_test_norm)
+            pred_lof_train = LOF_opti.predict(X_train_norm)
+            pred_lof_test = LOF_opti.predict(X_test_norm)
             m_lof = {
-                'train': extraire_metriques(y_train, LOF_opti.predict(X_train_norm)),
-                'test': extraire_metriques(y_test, pred_lof)
+                'train': extraire_metriques(y_train, pred_lof_train),
+                'test': extraire_metriques(y_test, pred_lof_test)
             }
             
             EE_base_opti = chercheur_pca.trouve_params(EllipticEnvelope(random_state=42))
             EE_pipeline = Pipeline([('pca', PCA(n_components=0.95, random_state=42)), ('ee', EE_base_opti)])
             EE_pipeline.fit(X_train_norm)
-            pred_ee = EE_pipeline.predict(X_test_norm)
+            pred_ee_train = EE_pipeline.predict(X_train_norm)
+            pred_ee_test = EE_pipeline.predict(X_test_norm)
             m_ee = {
-                'train': extraire_metriques(y_train, EE_pipeline.predict(X_train_norm)),
-                'test': extraire_metriques(y_test, pred_ee)
+                'train': extraire_metriques(y_train, pred_ee_train),
+                'test': extraire_metriques(y_test, pred_ee_test)
             }
             
             m_min = {'train':{}, 'test':{}}
@@ -118,27 +121,34 @@ def executer_evaluation(classes_a_tester, configs_a_tester):
 
             vote_hard = MyVotingOutlier(estimators=[('if', IF_opti), ('lof', LOF_opti), ('ee', EE_pipeline)], voting='hard', verbose=False)
             vote_hard.fit(X_train_norm, y_train)
-            pred_hard = vote_hard.predict(X_test_norm)
+            pred_hard_train = vote_hard.predict(X_train_norm)
+            pred_hard_test = vote_hard.predict(X_test_norm)
             m_hard = {
-                'train': extraire_metriques(y_train, vote_hard.predict(X_train_norm)),
-                'test': extraire_metriques(y_test, pred_hard)
+                'train': extraire_metriques(y_train, pred_hard_train),
+                'test': extraire_metriques(y_test, pred_hard_test)
             }
             
             vote_soft = MyVotingOutlier(estimators=[('if', IF_opti), ('lof', LOF_opti), ('ee', EE_pipeline)], voting='soft', verbose=False)
             vote_soft.fit(X_train_norm, y_train)
-            pred_soft = vote_soft.predict(X_test_norm)
+            pred_soft_train = vote_soft.predict(X_train_norm)
+            pred_soft_test = vote_soft.predict(X_test_norm)
             m_soft = {
-                'train': extraire_metriques(y_train, vote_soft.predict(X_train_norm)),
-                'test': extraire_metriques(y_test, pred_soft)
+                'train': extraire_metriques(y_train, pred_soft_train),
+                'test': extraire_metriques(y_test, pred_soft_test)
             }
             
             vote_sf = MyVotingOutlier(estimators=[('if', IF_opti), ('lof', LOF_opti), ('ee', EE_pipeline)], voting='S&F', verbose=False, sf_metric='f1')
             vote_sf.fit(X_train_norm, y_train)
-            pred_sf = vote_sf.predict(X_test_norm)
+            pred_sf_train = vote_sf.predict(X_train_norm)
+            pred_sf_test = vote_sf.predict(X_test_norm)
             m_sf = {
-                'train': extraire_metriques(y_train, vote_sf.predict(X_train_norm)),
-                'test': extraire_metriques(y_test, pred_sf)
+                'train': extraire_metriques(y_train, pred_sf_train),
+                'test': extraire_metriques(y_test, pred_sf_test)
             }
+            
+            # --- FUSIONNER TRAIN + TEST POUR LA VISUALISATION TSNE GLOBALE ---
+            X_full_norm = np.vstack((X_train_norm, X_test_norm))
+            y_full_true = np.concatenate((y_train, y_test))
             
             res = {
                 'classe': classe_cible,
@@ -149,15 +159,15 @@ def executer_evaluation(classes_a_tester, configs_a_tester):
                     'Vote HARD': m_hard, 'Vote SOFT': m_soft, 'Vote S&F': m_sf
                 },
                 'details_visu': {
-                    'X_test_norm': X_test_norm,
-                    'y_test': y_test,
+                    'X_norm': X_full_norm,
+                    'y_true': y_full_true,
                     'preds': {
-                        'Isolation Forest': pred_if,
-                        'Local Outlier Factor': pred_lof,
-                        'Elliptic Envelope': pred_ee,
-                        'Vote HARD': pred_hard,
-                        'Vote SOFT': pred_soft,
-                        'Vote S&F': pred_sf
+                        'Isolation Forest': np.concatenate((pred_if_train, pred_if_test)),
+                        'Local Outlier Factor': np.concatenate((pred_lof_train, pred_lof_test)),
+                        'Elliptic Envelope': np.concatenate((pred_ee_train, pred_ee_test)),
+                        'Vote HARD': np.concatenate((pred_hard_train, pred_hard_test)),
+                        'Vote SOFT': np.concatenate((pred_soft_train, pred_soft_test)),
+                        'Vote S&F': np.concatenate((pred_sf_train, pred_sf_test))
                     }
                 }
             }
@@ -276,18 +286,20 @@ def main():
 
         if len(donnees_entrainees) == 1:
             st.markdown("---")
-            st.subheader("Visualisation T-SNE Interactive (Données de Test)")
+            st.subheader(f"Visualisation T-SNE Interactive (Train + Test Globaux)")
             
             passage = donnees_entrainees[0]
             details = passage.get('details_visu', None)
             
             if details is None:
-                st.warning("Le cache ne contient pas les points T-SNE. Cliquez sur 'Vider les données' puis relancez.")
+                st.warning("Le cache ne contient pas les points complets. Cliquez sur 'Vider les données' puis relancez.")
             else:
-                X_test_norm = details['X_test_norm']
-                y_test_true = details['y_test']
+                X_norm = details.get('X_norm', details.get('X_test_norm'))
+                y_true = details.get('y_true', details.get('y_test'))
                 preds_dict = details['preds']
                 
+                st.info(f"💡 Affichage de l'ensemble du jeu de données pour cette configuration précise (Train + Test, **{X_norm.shape[0]} points** au total). Si tu es sur 10%, il est normal d'avoir peu de points (seulement 10% d'une seule classe de Digits).")
+
                 modele_visu = st.selectbox(
                     "Choisir le modèle à visualiser (Met à jour le graphique) :",
                     list(preds_dict.keys())
@@ -300,7 +312,7 @@ def main():
                     return TSNE(n_components=2, perplexity=perp, random_state=42).fit_transform(X_data)
                     
                 with st.spinner("Calcul des coordonnées T-SNE..."):
-                    X_tsne = compute_tsne(X_test_norm)
+                    X_tsne = compute_tsne(X_norm)
                 
                 y_pred = preds_dict[modele_visu]
                 
@@ -312,7 +324,7 @@ def main():
                 idx_anom = (y_pred == -1)
                 ax.scatter(X_tsne[idx_anom, 0], X_tsne[idx_anom, 1], c='#d62728', label='Prédit Anomalie par Modèle', marker='X', s=100)
                 
-                idx_true_anom = (y_test_true == -1)
+                idx_true_anom = (y_true == -1)
                 if np.any(idx_true_anom):
                     ax.scatter(X_tsne[idx_true_anom, 0], X_tsne[idx_true_anom, 1], 
                                facecolors='none', edgecolors='black', s=200, 
