@@ -6,10 +6,10 @@ import numpy as np
 import pandas as pd
 import joblib
 import matplotlib.pyplot as plt
-from classes.MyT_SNE import MyTSNE
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
+from classes.MyT_SNE import MyTSNE
 from sklearn.ensemble import IsolationForest
 from sklearn.neighbors import LocalOutlierFactor
 from sklearn.covariance import EllipticEnvelope
