@@ -151,10 +151,6 @@ def executer_evaluation(classes_a_tester, configs_a_tester):
                 'test': extraire_metriques(y_test, pred_sf_test)
             }
             
-            # --- FUSIONNER TRAIN + TEST POUR LA VISUALISATION TSNE GLOBALE ---
-            X_full_norm = np.vstack((X_train_norm, X_test_norm))
-            y_full_true = np.concatenate((y_train, y_test))
-            
             res = {
                 'classe': classe_cible,
                 'config': nom_config,
@@ -164,15 +160,15 @@ def executer_evaluation(classes_a_tester, configs_a_tester):
                     'Vote HARD': m_hard, 'Vote SOFT': m_soft, 'Vote S&F': m_sf
                 },
                 'details_visu': {
-                    'X_norm': X_full_norm,
-                    'y_true': y_full_true,
+                    'X_test_norm': X_test_norm,
+                    'y_test': y_test,
                     'preds': {
-                        'Isolation Forest': np.concatenate((pred_if_train, pred_if_test)),
-                        'Local Outlier Factor': np.concatenate((pred_lof_train, pred_lof_test)),
-                        'Elliptic Envelope': np.concatenate((pred_ee_train, pred_ee_test)),
-                        'Vote HARD': np.concatenate((pred_hard_train, pred_hard_test)),
-                        'Vote SOFT': np.concatenate((pred_soft_train, pred_soft_test)),
-                        'Vote S&F': np.concatenate((pred_sf_train, pred_sf_test))
+                        'Isolation Forest': pred_if_test,
+                        'Local Outlier Factor': pred_lof_test,
+                        'Elliptic Envelope': pred_ee_test,
+                        'Vote HARD': pred_hard_test,
+                        'Vote SOFT': pred_soft_test,
+                        'Vote S&F': pred_sf_test
                     }
                 }
             }
@@ -292,7 +288,7 @@ def main():
         if len(donnees_entrainees) == 1:
             st.markdown("---")
             st.subheader(f"Visualisation T-SNE")
-            st.info("Le graphique utilise les données normalisées complètes (train + test) pour une meilleure observation globale.")
+            st.info("Le graphique utilise uniquement les données de test.")
             
             passage = donnees_entrainees[0]
             details = passage.get('details_visu', None)
@@ -300,8 +296,8 @@ def main():
             if details is None:
                 st.warning("Le cache ne contient pas les points complets. Cliquez sur 'Vider les données' puis relancez.")
             else:
-                X_norm = details.get('X_norm', details.get('X_test_norm'))
-                y_true = details.get('y_true', details.get('y_test'))
+                X_norm = details['X_test_norm']
+                y_true = details['y_test']
                 preds_dict = details['preds']
                 
   
