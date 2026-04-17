@@ -187,3 +187,21 @@ voir comment implémenter My-TSNE comment prendre les données ? quelles donnée
 mardi S4
 
 Début de la création de l'app détection anomalie 
+
+
+
+
+C'est très bien, ça correspond à ce qui était attendu. Pour le t-SNE, ce serait mieux je pense d'avoir une option permettant de voir soit les données de test, soit celles d'entraînement, soit les deux. Comme toujours, plus il y a de données, plus le résultat affiché est convaincant. Ce serait intéressant aussi de projeter les images concernées (de projeter les chiffres en question), ce qui permettrait de voir d'un seul coup d'oeil ce qui est bien ou mal classé. Aussi, n'hésitez pas à jouer avec les paramètres de t-SNE (notamment le paramètre perplexity) pour en changer le résultat visuel.
+
+Pour la suite : il serait intéressant d'ajouter deux nouveaux détecteurs, le One-class SVM linéaire, et le one class SVM avec noyau RBF. Pour faire simple, les SVM sont faits pour faire une séparation linéaire entre les données (ils créent un hyperplan, avec d'un côté les "bons" points et de l'autre les anomalies), et les noyaux sont une astuce inventée pour projeter les données dans un espace de dimension supérieure pour les rendre linéairement séparables dans cet espace. Mais on s'en fiche pour ici. Ce qui serait intéressant, ce serait de :
+
+- les ajouter (attention, il y aura pas mal de configuration d'hyperparamètres à faire ici),
+- créer 3 nouveaux détecteurs de vote (hard, soft et S&F) qui incluent les 5 votants (tout en gardant les hard, soft et S&F actuels), pour les distinguer on pourrait les appeler, par exemple, vote HARD 3 et vote HARD 5
+
+Ensuite, nous verrons comment utiliser d'autres jeux de données (générés artificiellement), puis des données plus complexes à traiter (peut-être du texte, mais aussi des données temporelles, qui sont plus complexes à traiter). Nous ajouterons aussi des réseaux de neurones un peu élaborés, pour comparer avec nos méthodes (mon espoir étant qu'elles ne soient pas forcément meilleures, mais proches, car elles ont déjà l'avantage d'être moins gourmandes en ressources).
+
+
+à faire
+
+
+première étape modifier l'affichage de T-SNE 

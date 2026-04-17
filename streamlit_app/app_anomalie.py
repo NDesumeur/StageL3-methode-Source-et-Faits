@@ -13,15 +13,16 @@ from classes.MyT_SNE import MyTSNE
 from sklearn.ensemble import IsolationForest
 from sklearn.neighbors import LocalOutlierFactor
 from sklearn.covariance import EllipticEnvelope
+from sklearn.svm import OneClassSVM
 from sklearn.metrics import f1_score, precision_score, recall_score, accuracy_score
 from sklearn.model_selection import train_test_split
 from sklearn.pipeline import Pipeline
 from sklearn.decomposition import PCA
 
+from sklearn.preprocessing import MinMaxScaler
 from classes.utils.ChargeurDonneesPourOutlier import ChargeurDonneesPourOutlier
 from classes.utils.Normaliseur import Normaliseur
 from classes.utils.Trouve_params import Trouve_params
-from classes.MyVotingClassifier import MyVotingClassifier
 from classes.MyVotingOutlier import MyVotingOutlier
 from classes.utils.Borda import CalculateurBorda
 
@@ -81,8 +82,20 @@ def executer_evaluation(classes_a_tester, configs_a_tester):
             X_train_pca = pca.fit_transform(X_train_norm)
             X_test_pca = pca.transform(X_test_norm)
             
+            # Un équilibre parfait entre trop peu de dimensions (perte de la forme)
+            # et trop (matrice infinie pour EE) : 85% de la variance conservée.
+            pca_medium = PCA(n_components=0.85, random_state=42)
+            X_train_pca_medium = pca_medium.fit_transform(X_train_norm)
+            X_test_pca_medium = pca_medium.transform(X_test_norm)
+            
+            norm_mm = MinMaxScaler()
+            X_train_mm = norm_mm.fit_transform(X_train)
+            X_test_mm = norm_mm.transform(X_test)
+            
             chercheur_norm = Trouve_params(X_train_norm, y_train, cv=3, verbose=0)
             chercheur_pca = Trouve_params(X_train_pca, y_train, cv=3, verbose=0)
+            chercheur_pca_medium = Trouve_params(X_train_pca_medium, y_train, cv=3, verbose=0)
+            chercheur_mm = Trouve_params(X_train_mm, y_train, cv=3, verbose=0)
             
             IF_opti = chercheur_norm.trouve_params(IsolationForest(random_state=42))
             pred_if_train = IF_opti.predict(X_train_norm)
@@ -93,19 +106,16 @@ def executer_evaluation(classes_a_tester, configs_a_tester):
             }
             
             LOF_opti = chercheur_norm.trouve_params(LocalOutlierFactor(novelty=True))
-            # Utilisation de fit_predict pour le Train, predict pour le Test (Evite l'erreur distance=0 sur soi-même)
-            # LOF en novelty=True ne possède PAS de .fit_predict. Il faut recréer un objet temporaire sans novelty.
             lof_pour_train = LocalOutlierFactor(n_neighbors=LOF_opti.n_neighbors, contamination=LOF_opti.contamination)
             pred_lof_train = lof_pour_train.fit_predict(X_train_norm)
-            
             pred_lof_test = LOF_opti.predict(X_test_norm)
             m_lof = {
                 'train': extraire_metriques(y_train, pred_lof_train),
                 'test': extraire_metriques(y_test, pred_lof_test)
             }
             
-            EE_base_opti = chercheur_pca.trouve_params(EllipticEnvelope(random_state=42))
-            EE_pipeline = Pipeline([('pca', PCA(n_components=0.95, random_state=42)), ('ee', EE_base_opti)])
+            EE_base_opti = chercheur_pca_medium.trouve_params(EllipticEnvelope(random_state=42))
+            EE_pipeline = Pipeline([('pca', PCA(n_components=0.85, random_state=42)), ('ee', EE_base_opti)])
             EE_pipeline.fit(X_train_norm)
             pred_ee_train = EE_pipeline.predict(X_train_norm)
             pred_ee_test = EE_pipeline.predict(X_test_norm)
@@ -114,61 +124,133 @@ def executer_evaluation(classes_a_tester, configs_a_tester):
                 'test': extraire_metriques(y_test, pred_ee_test)
             }
             
+            # One-Class SVM Linear
+            OCSVM_lin_base = chercheur_mm.trouve_params(OneClassSVM(kernel='linear'))
+            # Pas de PCA pour le SVM Linéaire ! Le PCA centre les données sur 0,
+            # forçant le SVM de type linéaire à couper le cluster normal en plein milieu.
+            OCSVM_lin_pipeline = Pipeline([('scaler', MinMaxScaler()), ('ocsvm', OCSVM_lin_base)])
+            OCSVM_lin_pipeline.fit(X_train_norm)
+            pred_ocsvm_lin_train = OCSVM_lin_pipeline.predict(X_train_norm)
+            pred_ocsvm_lin_test = OCSVM_lin_pipeline.predict(X_test_norm)
+            m_ocsvm_lin = {
+                'train': extraire_metriques(y_train, pred_ocsvm_lin_train),
+                'test': extraire_metriques(y_test, pred_ocsvm_lin_test)
+            }
+
+            # One-Class SVM RBF
+            OCSVM_rbf_base = chercheur_mm.trouve_params(OneClassSVM(kernel='rbf'))
+            # Comme pour le SVM Linéaire, l'espace d'origine est crucial.
+            # L'approche MinMax donne toutes les données brutes spatiales [0, 1] à l'algorithme.
+            OCSVM_rbf_pipeline = Pipeline([('scaler', MinMaxScaler()), ('ocsvm', OCSVM_rbf_base)])
+            OCSVM_rbf_pipeline.fit(X_train)
+            pred_ocsvm_rbf_train = OCSVM_rbf_pipeline.predict(X_train)
+            pred_ocsvm_rbf_test = OCSVM_rbf_pipeline.predict(X_test)
+            m_ocsvm_rbf = {
+                'train': extraire_metriques(y_train, pred_ocsvm_rbf_train),
+                'test': extraire_metriques(y_test, pred_ocsvm_rbf_test)
+            }
+            
             m_min = {'train':{}, 'test':{}}
             m_max = {'train':{}, 'test':{}}
             m_avg = {'train':{}, 'test':{}}
             for phase in ['train', 'test']:
                 for k in ['f1', 'precision', 'recall', 'accuracy']: 
-                    vals = [m_if[phase][k], m_lof[phase][k], m_ee[phase][k]]
+                    vals = [m_if[phase][k], m_lof[phase][k], m_ee[phase][k], m_ocsvm_lin[phase][k], m_ocsvm_rbf[phase][k]]
                     m_min[phase][k] = min(vals)
                     m_max[phase][k] = max(vals)
-                    m_avg[phase][k] = sum(vals)/3
+                    m_avg[phase][k] = sum(vals)/5
 
-            vote_hard = MyVotingOutlier(estimators=[('if', IF_opti), ('lof', LOF_opti), ('ee', EE_pipeline)], voting='hard', verbose=False)
-            vote_hard.fit(X_train_norm, y_train)
-            pred_hard_train = vote_hard.predict(X_train_norm)
-            pred_hard_test = vote_hard.predict(X_test_norm)
-            m_hard = {
-                'train': extraire_metriques(y_train, pred_hard_train),
-                'test': extraire_metriques(y_test, pred_hard_test)
-            }
+            # -------- VOTE 3 (IF, LOF, EE) --------
+            # Voting Hardware 3
+            vote_hard_3 = MyVotingOutlier(estimators=[('if', IF_opti), ('lof', LOF_opti), ('ee', EE_pipeline)], voting='hard', verbose=False)
+            vote_hard_3.fit(X_train_norm, y_train)
             
-            vote_soft = MyVotingOutlier(estimators=[('if', IF_opti), ('lof', LOF_opti), ('ee', EE_pipeline)], voting='soft', verbose=False)
-            vote_soft.fit(X_train_norm, y_train)
-            pred_soft_train = vote_soft.predict(X_train_norm)
-            pred_soft_test = vote_soft.predict(X_test_norm)
-            m_soft = {
-                'train': extraire_metriques(y_train, pred_soft_train),
-                'test': extraire_metriques(y_test, pred_soft_test)
-            }
+            pred_hard_train_3 = vote_hard_3.predict(X_train_norm)
+            pred_hard_test_3 = vote_hard_3.predict(X_test_norm)
+            m_hard_3 = {'train': extraire_metriques(y_train, pred_hard_train_3), 'test': extraire_metriques(y_test, pred_hard_test_3)}
             
-            vote_sf = MyVotingOutlier(estimators=[('if', IF_opti), ('lof', LOF_opti), ('ee', EE_pipeline)], voting='S&F', verbose=False, sf_metric='f1')
-            vote_sf.fit(X_train_norm, y_train)
-            pred_sf_train = vote_sf.predict(X_train_norm)
-            pred_sf_test = vote_sf.predict(X_test_norm)
-            m_sf = {
-                'train': extraire_metriques(y_train, pred_sf_train),
-                'test': extraire_metriques(y_test, pred_sf_test)
-            }
+            # Voting Software 3
+            vote_soft_3 = MyVotingOutlier(estimators=[('if', IF_opti), ('lof', LOF_opti), ('ee', EE_pipeline)], voting='soft', verbose=False)
+            vote_soft_3.fit(X_train_norm, y_train)
+            
+            pred_soft_train_3 = vote_soft_3.predict(X_train_norm)
+            pred_soft_test_3 = vote_soft_3.predict(X_test_norm)
+            m_soft_3 = {'train': extraire_metriques(y_train, pred_soft_train_3), 'test': extraire_metriques(y_test, pred_soft_test_3)}
+            
+            # Voting S&F 3
+            vote_sf_3 = MyVotingOutlier(estimators=[('if', IF_opti), ('lof', LOF_opti), ('ee', EE_pipeline)], voting='S&F', verbose=False)
+            vote_sf_3.fit(X_train_norm, y_train)
+            
+            pred_sf_train_3 = vote_sf_3.predict(X_train_norm)
+            pred_sf_test_3 = vote_sf_3.predict(X_test_norm)
+            m_sf_3 = {'train': extraire_metriques(y_train, pred_sf_train_3), 'test': extraire_metriques(y_test, pred_sf_test_3)}
+
+            # -------- VOTE 5 (IF, LOF, EE, OCSVM Lin, OCSVM RBF) --------
+            estimators_5 = [('if', IF_opti), ('lof', LOF_opti), ('ee', EE_pipeline), ('ocsvm_lin', OCSVM_lin_pipeline), ('ocsvm_rbf', OCSVM_rbf_pipeline)]
+            
+            # Voting Hardware 5
+            vote_hard_5 = MyVotingOutlier(estimators=estimators_5, voting='hard', verbose=False)
+            vote_hard_5.fit(X_train_norm, y_train)
+            pred_hard_train_5 = vote_hard_5.predict(X_train_norm)
+            pred_hard_test_5 = vote_hard_5.predict(X_test_norm)
+            m_hard_5 = {'train': extraire_metriques(y_train, pred_hard_train_5), 'test': extraire_metriques(y_test, pred_hard_test_5)}
+            
+            # Voting Software 5
+            vote_soft_5 = MyVotingOutlier(estimators=estimators_5, voting='soft', verbose=False)
+            vote_soft_5.fit(X_train_norm, y_train)
+            pred_soft_train_5 = vote_soft_5.predict(X_train_norm)
+            pred_soft_test_5 = vote_soft_5.predict(X_test_norm)
+            m_soft_5 = {'train': extraire_metriques(y_train, pred_soft_train_5), 'test': extraire_metriques(y_test, pred_soft_test_5)}
+            
+            # Voting S&F 5
+            vote_sf_5 = MyVotingOutlier(estimators=estimators_5, voting='S&F', verbose=False)
+            vote_sf_5.fit(X_train_norm, y_train)
+            pred_sf_train_5 = vote_sf_5.predict(X_train_norm)
+            pred_sf_test_5 = vote_sf_5.predict(X_test_norm)
+            m_sf_5 = {'train': extraire_metriques(y_train, pred_sf_train_5), 'test': extraire_metriques(y_test, pred_sf_test_5)}
             
             res = {
                 'classe': classe_cible,
                 'config': nom_config,
-                'metriques': {
+                                'metriques': {
                     'Isolation Forest': m_if, 'Local Outlier Factor': m_lof, 'Elliptic Envelope': m_ee,
+                    'OCSVM Linéaire': m_ocsvm_lin, 'OCSVM RBF': m_ocsvm_rbf,
                     'Modèle MIN': m_min, 'Modèle MAX': m_max, 'Modèle AVG': m_avg,
-                    'Vote HARD': m_hard, 'Vote SOFT': m_soft, 'Vote S&F': m_sf
+                    'Vote HARD 3': m_hard_3, 'Vote SOFT 3': m_soft_3, 'Vote S&F 3': m_sf_3,
+                    'Vote HARD 5': m_hard_5, 'Vote SOFT 5': m_soft_5, 'Vote S&F 5': m_sf_5
                 },
                 'details_visu': {
+                    'X_train_norm': X_train_norm,
                     'X_test_norm': X_test_norm,
+                    'X_train_raw': X_train,
+                    'X_test_raw': X_test,
+                    'y_train': y_train,
                     'y_test': y_test,
-                    'preds': {
+                    'preds_train': {
+                        'Isolation Forest': pred_if_train,
+                        'Local Outlier Factor': pred_lof_train,
+                        'Elliptic Envelope': pred_ee_train,
+                        'OCSVM Linéaire': pred_ocsvm_lin_train,
+                        'OCSVM RBF': pred_ocsvm_rbf_train,
+                        'Vote HARD 3': pred_hard_train_3,
+                        'Vote SOFT 3': pred_soft_train_3,
+                        'Vote S&F 3': pred_sf_train_3,
+                        'Vote HARD 5': pred_hard_train_5,
+                        'Vote SOFT 5': pred_soft_train_5,
+                        'Vote S&F 5': pred_sf_train_5
+                    },
+                    'preds_test': {
                         'Isolation Forest': pred_if_test,
                         'Local Outlier Factor': pred_lof_test,
                         'Elliptic Envelope': pred_ee_test,
-                        'Vote HARD': pred_hard_test,
-                        'Vote SOFT': pred_soft_test,
-                        'Vote S&F': pred_sf_test
+                        'OCSVM Linéaire': pred_ocsvm_lin_test,
+                        'OCSVM RBF': pred_ocsvm_rbf_test,
+                        'Vote HARD 3': pred_hard_test_3,
+                        'Vote SOFT 3': pred_soft_test_3,
+                        'Vote S&F 3': pred_sf_test_3,
+                        'Vote HARD 5': pred_hard_test_5,
+                        'Vote SOFT 5': pred_soft_test_5,
+                        'Vote S&F 5': pred_sf_test_5
                     }
                 }
             }
@@ -183,10 +265,11 @@ def executer_evaluation(classes_a_tester, configs_a_tester):
         
     return resultats_finaux
 
+
 def main():
     st.set_page_config(page_title="Evaluation d'Anomalies Borda & T-SNE", layout="wide")
     st.title("Comparatif des Modèles d'Anomalies - Classement Borda & Visualisation T-SNE")
-    st.info("Pour afficher les résultats, il faut selectionner une classe et une configuration dans le menu à gauche, puis cliquer sur 'Lancer l'évaluation'. Ont peut aussi choisir 'Toutes les Classes' et 'Toutes les Configurations' pour une évaluation complète (cela prendra plus de temps).\n\nPour que le T-SNE soit affiché, il faut choisir une classe et une configuration spécifiques (pas 'Toutes').")
+    st.info("Pour afficher les résultats, il faut selectionner une classe et une configuration dans le menu à gauche, puis cliquer sur 'Lancer l'évaluation'.")
     
     if "donnees_eval" not in st.session_state:
         st.session_state.donnees_eval = None
@@ -232,17 +315,14 @@ def main():
             dict_borda = {}
             for candidat, ses_metriques in passage['metriques'].items():
                 dict_borda[candidat] = ses_metriques['test']['f1']
-                
                 historique[candidat]['train']['f1'].append(ses_metriques['train']['f1'])
                 historique[candidat]['train']['precision'].append(ses_metriques['train']['precision'])
                 historique[candidat]['train']['recall'].append(ses_metriques['train']['recall'])
                 historique[candidat]['train']['accuracy'].append(ses_metriques['train']['accuracy'])
-                
                 historique[candidat]['test']['f1'].append(ses_metriques['test']['f1'])
                 historique[candidat]['test']['precision'].append(ses_metriques['test']['precision'])
                 historique[candidat]['test']['recall'].append(ses_metriques['test']['recall'])
                 historique[candidat]['test']['accuracy'].append(ses_metriques['test']['accuracy'])
-                
             liste_scores_config_pour_borda.append(dict_borda)
 
         classement_final = CalculateurBorda.calculer(liste_scores_config_pour_borda)
@@ -268,78 +348,134 @@ def main():
         df_borda = pd.DataFrame(df_rows)
         df_borda.set_index("Position", inplace=True)
         
-        st.subheader(f"Tableau de Résultats - {len(donnees_entrainees)} Itérations Évaluées")
+        # Création des onglets
+        tab_borda, tab_tsne = st.tabs(["Tableau des résultats (Borda)", "My-TSNE"])
         
-        st.dataframe(df_borda.style.highlight_max(subset=["Points Borda", "F1 Test (%)"], color='#c6e0b4')
-                                   .highlight_min(subset=["Points Borda", "F1 Test (%)"], color='#f8cbcb')
-                                   .format(precision=1),
-                     use_container_width=True)
-
-        col1, col2 = st.columns([1, 2])
-        with col1:
-            csv = df_borda.to_csv(sep=';', decimal=',').encode('utf-8')
-            st.download_button(
-                label="Télécharger ce tableau en format Excel / CSV",
-                data=csv,
-                file_name=f'Extraction_Metriques_{choix_classe}_{choix_config}.csv',
-                mime='text/csv',
-            )
-
-        if len(donnees_entrainees) == 1:
-            st.markdown("---")
-            st.subheader(f"Visualisation T-SNE")
-            st.info("Le graphique utilise uniquement les données de test.")
+        with tab_borda:
+            st.subheader(f"Basé sur {len(donnees_entrainees)} itération(s) évaluée(s)")
             
-            passage = donnees_entrainees[0]
-            details = passage.get('details_visu', None)
+            st.dataframe(df_borda.style.highlight_max(subset=["Points Borda", "F1 Test (%)"], color='#c6e0b4')
+                                       .highlight_min(subset=["Points Borda", "F1 Test (%)"], color='#f8cbcb')
+                                       .format(precision=1), width='stretch')
+
+            colA, colB = st.columns([1, 2])
+            with colA:
+                csv = df_borda.to_csv(sep=';', decimal=',').encode('utf-8')
+                st.download_button(label="Télécharger ce tableau en format Excel/CSV", data=csv,
+                                   file_name=f'Extraction_Metriques_{choix_classe}_{choix_config}.csv', mime='text/csv')
+
+        with tab_tsne:
+            if len(donnees_entrainees) == 1:
+                st.subheader(f"Affichage pour la Classe {donnees_entrainees[0]['classe']} | Configuration {donnees_entrainees[0]['config']}")
+                
+                passage = donnees_entrainees[0]
+                details = passage.get('details_visu', None)
             
-            if details is None:
-                st.warning("Le cache ne contient pas les points complets. Cliquez sur 'Vider les données' puis relancez.")
+                if details is None or 'X_train_raw' not in details:
+                    st.warning(" Les données ont été mises à jour pour incorporer les images. Veuillez 'Vider les données' à gauche et relancer.")
+                else:
+                    c1, c2, c3 = st.columns([1, 2, 1])
+                    with c1:
+                        modele_visu = st.selectbox("Choisir le Modèle :", list(details['preds_test'].keys()))
+                    with c2:
+                        choix_donnees = st.radio("Cible du T-SNE :", ["Test Uniquement", "Entraînement Uniquement", "Complet (Train + Test)"], index=0, horizontal=True)
+                    
+                    if '10pct' in passage['config']:
+                        if choix_donnees == "Test Uniquement": def_perp = 5
+                        elif choix_donnees == "Entraînement Uniquement": def_perp = 15
+                        else: def_perp = 15
+                    elif '25pct' in passage['config']:
+                        if choix_donnees == "Test Uniquement": def_perp = 5
+                        elif choix_donnees == "Entraînement Uniquement": def_perp = 20
+                        else: def_perp = 25
+                    else:
+                        if choix_donnees == "Test Uniquement": def_perp = 15
+                        elif choix_donnees == "Entraînement Uniquement": def_perp = 40
+                        else: def_perp = 45
+                        
+                    with c3:
+                        perplexity_val = st.slider("Perplexité (T-SNE) :", min_value=2, max_value=50, value=def_perp, step=1)
+                    
+    
+                    # Extraction ciblée
+                    if choix_donnees == "Test Uniquement":
+                        X_norm = details['X_test_norm']
+                        X_raw = details['X_test_raw']
+                        y_true = details['y_test']
+                        y_pred = details['preds_test'][modele_visu]
+                    elif choix_donnees == "Entraînement Uniquement":
+                        X_norm = details['X_train_norm']
+                        X_raw = details['X_train_raw']
+                        y_true = details['y_train']
+                        y_pred = details['preds_train'][modele_visu]
+                    else: # Complet
+                        X_norm = np.vstack((details['X_train_norm'], details['X_test_norm']))
+                        X_raw = np.vstack((details['X_train_raw'], details['X_test_raw']))
+                        y_true = np.concatenate((details['y_train'], details['y_test']))
+                        y_pred = np.concatenate((details['preds_train'][modele_visu], details['preds_test'][modele_visu]))
+    
+                    @st.cache_data
+                    def compute_tsne(X_data, perp):
+                        n_samples = X_data.shape[0]
+                        # Protection mathématique 
+                        safe_perp = min(perp, max(1, n_samples - 1))
+                        return MyTSNE(n_components=2, perplexity=safe_perp, max_iter=1000).fit_transform(X_data)
+                        
+                    with st.spinner("Calcul des coordonnées MyTSNE en cours.."):
+                        X_tsne = compute_tsne(X_norm, perplexity_val)
+                    
+                    fig, ax = plt.subplots(figsize=(11, 7))
+                    
+                    from matplotlib.offsetbox import OffsetImage, AnnotationBbox
+                    from matplotlib.lines import Line2D
+                        
+                    for i in range(len(X_tsne)):
+                            # Reconstruction du chiffre 8x8
+                            img_data = X_raw[i].reshape(8, 8)
+                            imagebox = OffsetImage(img_data, cmap=plt.cm.gray_r, zoom=1.4)
+                            
+                            is_anom_pred = (y_pred[i] == -1)
+                            is_anom_true = (y_true[i] == -1)
+                            
+                            if is_anom_pred and is_anom_true:
+                                color = '#d62728' # Vrai Positif (Bien Trouvé) = ROUGE
+                                lw = 3
+                            elif is_anom_pred and not is_anom_true:
+                                color = '#ff7f0e' # Faux Positif (Fausse Alarme) = ORANGE
+                                lw = 3
+                            elif not is_anom_pred and is_anom_true:
+                                color = '#9467bd' # Faux Négatif (Anomalie Ratée) = VIOLET
+                                lw = 3
+                            else:
+                                color = '#1f77b4' # Vrai Négatif (Sain Normal) = BLEU
+                                lw = 1
+                                
+                            ab = AnnotationBbox(imagebox, (X_tsne[i, 0], X_tsne[i, 1]), frameon=True,
+                                                bboxprops=dict(edgecolor=color, linewidth=lw, facecolor='white', alpha=0.8))
+                            ax.add_artist(ab)
+                            
+                        # Fixer les limites manuellement quand on utilise add_artist
+                    ax.set_xlim(X_tsne[:, 0].min() - 5, X_tsne[:, 0].max() + 5)
+                    ax.set_ylim(X_tsne[:, 1].min() - 5, X_tsne[:, 1].max() + 5)
+                        
+                    legend_elements = [
+                            Line2D([0], [0], marker='o', color='w', markerfacecolor='w', markeredgecolor='#1f77b4', markersize=10, label='Vrai Négatif (Non anomalie bien identifiée)'),
+                            Line2D([0], [0], marker='o', color='w', markerfacecolor='w', markeredgecolor='#d62728', markeredgewidth=2, markersize=10, label='Vrai Positif (Anomalie Bien Trouvée)'),
+                            Line2D([0], [0], marker='o', color='w', markerfacecolor='w', markeredgecolor='#ff7f0e', markeredgewidth=2, markersize=10, label='Faux Positif (Anomalie Faussement Détectée)'),
+                            Line2D([0], [0], marker='o', color='w', markerfacecolor='w', markeredgecolor='#9467bd', markeredgewidth=2, markersize=10, label='Faux Négatif (Anomalie Ratée)')
+                        ]
+                    ax.legend(handles=legend_elements, bbox_to_anchor=(1.01, 1), loc='upper left')
+    
+                    ax.set_title(f"Aperçu T-SNE - {modele_visu} ({choix_donnees} / P={perplexity_val})", fontsize=14, pad=15)
+                    ax.grid(True, linestyle=":", alpha=0.4)
+                    ax.spines['top'].set_visible(False)
+                    ax.spines['right'].set_visible(False)
+                    plt.tight_layout()
+                    
+                    st.pyplot(fig)
             else:
-                X_norm = details['X_test_norm']
-                y_true = details['y_test']
-                preds_dict = details['preds']
-                
-  
-                modele_visu = st.selectbox(
-                    "Choisir le modèle à visualiser :",
-                    list(preds_dict.keys())
-                )
-                
-                @st.cache_data
-                def compute_tsne(X_data):
-                    n_samples = X_data.shape[0]
-                    perp = min(30, max(1, n_samples - 1))
-                    return MyTSNE(n_components=2, perplexity=perp, random_state=42).fit_transform(X_data)
-                    
-                with st.spinner("Calcul des coordonnées T-SNE..."):
-                    X_tsne = compute_tsne(X_norm)
-                
-                y_pred = preds_dict[modele_visu]
-                
-                fig, ax = plt.subplots(figsize=(10, 6))
-                
-                idx_norm = (y_pred == 1)
-                ax.scatter(X_tsne[idx_norm, 0], X_tsne[idx_norm, 1], c='#bbd8eb', label='Prédit Normal (Sain)', alpha=0.6, edgecolors='w', s=60)
-                
-                idx_anom = (y_pred == -1)
-                ax.scatter(X_tsne[idx_anom, 0], X_tsne[idx_anom, 1], c='#d62728', label='Prédit Anomalie par Modèle', marker='X', s=100)
-                
-                idx_true_anom = (y_true == -1)
-                if np.any(idx_true_anom):
-                    ax.scatter(X_tsne[idx_true_anom, 0], X_tsne[idx_true_anom, 1], 
-                               facecolors='none', edgecolors='black', s=200, 
-                               label='Vraie Anomalie', linewidths=2, linestyle='--')
-                    
-                ax.set_title(f"Analyse des Décisions - {modele_visu}", fontsize=14, pad=15)
-                
-                ax.grid(True, linestyle=":", alpha=0.6)
-                ax.spines['top'].set_visible(False)
-                ax.spines['right'].set_visible(False)
-                ax.legend(bbox_to_anchor=(1.05, 1), loc='upper left', frameon=True, shadow=True)
-                plt.tight_layout()
-                
-                st.pyplot(fig)
+                st.info("La zone de projection My-TSNE est masquée car vous avez sélectionné plusieurs classes ou configurations en même temps. \n\nPour réafficher et interagir avec l'espace 2D, veuillez cibler **une seule classe** et **une seule configuration** dans le menu de gauche puis relancez l'évaluation.")
 
 if __name__ == "__main__":
     main()
+
