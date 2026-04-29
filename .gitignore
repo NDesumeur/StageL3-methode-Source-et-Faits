@@ -1,8 +1,10 @@
 __pycache__/
 *.pyc
-data/
 .venv/
 venv/
 env/
 .env
 .ipynb_checkpoints/
+# Ignorer les très gros datasets s'ils sont téléchargés (images et textes), mais garder les classiques
+data/adbench/CV_*/
+data/adbench/NLP_*/
