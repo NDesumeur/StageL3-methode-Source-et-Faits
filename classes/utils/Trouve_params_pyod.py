@@ -30,51 +30,19 @@ class Trouve_params_pyod:
     
         # Grilles spécifiques aux modèles PyOD
         self.grilles_connues = {
-            IForest: {
-                'n_estimators': [50, 100, 200],
-                'max_samples': ['auto', 256]
-            },
-            LOF: {
-                'n_neighbors': [10, 20, 30, 50],
-                'metric': ['minkowski', 'euclidean']
-            },
-            KNN: {
-                'n_neighbors': [5, 10, 20],
-                'method': ['largest', 'mean', 'median']
-            },
-            OCSVM: {
-                'nu': [0.01, 0.05, 0.1, 0.2],
-                'gamma': ['scale', 'auto', 0.1]
-            },
-            PCA: {
-                'n_components': [0.5, 0.7, 0.9] # Ratio de variance expliquée
-            },
-            HBOS: {
-                'n_bins': [10, 20, 50],
-                'tol': [0.1, 0.5]
-            },
-            LODA: {
-                'n_bins': [10, 20, 50],
-                'n_random_cuts': [50, 100, 200]
-            },
-            CBLOF: {
-                'n_clusters': [8, 15],
-                'alpha': [0.7, 0.9]
-            },
-            COF: {
-                'n_neighbors': [10, 20]
-            },
-            SOS: {
-                'perplexity': [4.5, 10, 50]
-            },
-            DeepSVDD: {
-                'n_epochs': [10, 20],
-                'hidden_neurons': [[64, 32], [32, 16]],
-                'batch_size': [32, 64]
-            },
-            # ECOD et COPOD sont dits "Parameter-free" (statistiques paramétriques directes)
-            COPOD: {},
-            ECOD: {}
+            IForest: {'n_estimators': [50, 100, 200], 'max_samples': ['auto', 0.8], 'contamination': [0.05, 0.1, 0.2, 0.35, 0.5]},
+            LOF: {'n_neighbors': [5, 20, 50], 'metric': ['minkowski', 'euclidean'], 'contamination': [0.05, 0.1, 0.2, 0.35, 0.5]},
+            KNN: {'n_neighbors': [5, 10, 20, 30], 'method': ['largest', 'mean'], 'contamination': [0.05, 0.1, 0.2, 0.35, 0.5]},
+            OCSVM: {'nu': [0.05, 0.1, 0.5], 'gamma': ['scale', 'auto', 0.1], 'kernel': ['rbf', 'poly'], 'contamination': [0.05, 0.1, 0.2, 0.35, 0.5]},
+            PCA: {'n_components': [0.5, 0.9, 0.99], 'contamination': [0.05, 0.1, 0.2, 0.35, 0.5]},
+            HBOS: {'n_bins': [10, 50], 'alpha': [0.1, 0.5], 'contamination': [0.05, 0.1, 0.2, 0.35, 0.5]},
+            LODA: {'n_bins': [10, 50], 'n_random_cuts': [50, 100], 'contamination': [0.05, 0.1, 0.2, 0.35, 0.5]},
+            CBLOF: {'n_clusters': [5, 10, 20], 'alpha': [0.7, 0.9], 'contamination': [0.05, 0.1, 0.2, 0.35, 0.5]},
+            COF: {'n_neighbors': [5, 10, 20], 'contamination': [0.05, 0.1, 0.2, 0.35, 0.5]},
+            SOS: {'perplexity': [20, 50], 'contamination': [0.05, 0.1, 0.2, 0.35, 0.5]},
+            DeepSVDD: {'epochs': [20], 'hidden_neurons': [[64, 32], [32, 16]], 'contamination': [0.05, 0.1, 0.2, 0.35, 0.5]},
+            COPOD: {'contamination': [0.05, 0.1, 0.2, 0.35, 0.5]}, 
+            ECOD: {'contamination': [0.05, 0.1, 0.2, 0.35, 0.5]}
         }
 
     def trouver_grille(self, model):
@@ -108,6 +76,9 @@ class Trouve_params_pyod:
         
         parametres_a_tester = list(ParameterGrid(grille))
         
+        # Astuce cruciale : récupérer les paramètres de base (notamment 'contamination')
+        params_base = model.get_params()
+        
         for params in parametres_a_tester:
             scores_cv = []
             
@@ -116,7 +87,9 @@ class Trouve_params_pyod:
                 y_tr, y_val = self.y[train_idx], self.y[val_idx]
                 
                 # Instance du modèle avec les paramètres actuels
-                mod_instance = type_modele(**params)
+                params_actuels = params_base.copy()
+                params_actuels.update(params)
+                mod_instance = type_modele(**params_actuels)
                 
                 try:
                     mod_instance.fit(X_tr)
@@ -128,7 +101,7 @@ class Trouve_params_pyod:
                     else:
                         # F1 préfère les prédictions binaires (0/1)
                         preds = mod_instance.predict(X_val)
-                        score = f1_score(y_val, preds, average='macro')
+                        score = f1_score(y_val, preds, zero_division=0)
                         
                     scores_cv.append(score)
                 except Exception as e:
@@ -146,6 +119,8 @@ class Trouve_params_pyod:
                   f"Meilleur {self.scoring.upper()}: {meilleur_score:.4f} | Params: {meilleurs_params}")
             
         # On recrée l'objet final avec les meilleurs attributs, et on l'entraîne sur TOUTES les données fournies
-        modele_final = type_modele(**meilleurs_params)
+        params_finaux = params_base.copy()
+        params_finaux.update(meilleurs_params)
+        modele_final = type_modele(**params_finaux)
         modele_final.fit(self.X)
         return modele_final
