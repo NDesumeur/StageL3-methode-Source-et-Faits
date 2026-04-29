@@ -35,7 +35,7 @@ def charger_donnees_cachees(nom_choisi):
 
 def configurer_page():
     """Initialise le titre et les paramètres de la page Streamlit."""
-    st.set_page_config(page_title="MyVotingClassifier App", layout="centered")
+    # st.set_page_config(page_title="MyVotingClassifier App", layout="centered")
     st.title("Bienvenue sur l'application de visualisation des performances de MyVotingClassifier !" )
     st.text("Cette application vous permet de charger différents datasets, d'explorer leurs caractéristiques de montrer leur modélisation avec MyT-SNE et de visualiser les résultats de MyVotingClassifier.")
     st.write("---")

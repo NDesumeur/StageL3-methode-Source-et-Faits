@@ -267,7 +267,7 @@ def executer_evaluation(classes_a_tester, configs_a_tester):
 
 
 def main():
-    st.set_page_config(page_title="Evaluation d'Anomalies Borda & T-SNE", layout="wide")
+    # st.set_page_config(page_title="Evaluation d'Anomalies Borda & T-SNE", layout="wide")
     st.title("Comparatif des Modèles d'Anomalies - Classement Borda & Visualisation T-SNE")
     st.info("Pour afficher les résultats, il faut selectionner une classe et une configuration dans le menu à gauche, puis cliquer sur 'Lancer l'évaluation'.")
     

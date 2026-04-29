@@ -4,7 +4,7 @@ import pandas as pd
 import os
 
 def main():
-    st.set_page_config(page_title="Explorateur ADBench", layout="wide")
+    # st.set_page_config(page_title="Explorateur ADBench", layout="wide")
     st.title(" Explorateur de Datasets ADBench")
     
     dossier_data = os.path.join(os.getcwd(), "data", "adbench")
