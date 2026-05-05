@@ -25,6 +25,8 @@ import sys
 import os
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 from classes.utils.Trouve_params_pyod import Trouve_params_pyod
+from classes.MyVotingPyOD import MyVotingPyOD
+
 
 def evaluer_modele(nom_modele, modele, X_train, y_train, X_test, y_test):
     print(f"\n--- Entraînement de {nom_modele} ---")
@@ -85,9 +87,9 @@ def main():
         print(" Aucun fichier .npz trouvé dans data/adbench/.")
         return
         
-    # On choisit un dataset "raisonnable" où les anomalies sont identifiables 
-    # pour te prouver que les algo tournent bien au-dessus de 50% (F1) / 90% (AUC)
-    dataset_cible = "18_Ionosphere.npz" 
+    # On choisit un dataset "raisonnable" où les anomalies sont identifiables
+    # Le dataset peut être overridé par la variable d'environnement ADBENCH_DATASET
+    dataset_cible = os.environ.get('ADBENCH_DATASET', "1_ALOI.npz")
     print(f"Dataset sélectionné : {dataset_cible}")
     
     X, y = charger_dataset_adbench(dataset_cible)
@@ -138,9 +140,10 @@ def main():
     
     # On va utiliser notre optimiseur sur quelques modèles pour l'exemple (ça prendrait trop de temps sinon)
     print("\n[OPTIMISATION GRILLE - TEST]")
-    optimiseur = Trouve_params_pyod(X_train_norm, y_train, cv=2, scoring='f1')
+    optimiseur = Trouve_params_pyod(X_train_norm, y_train, cv=2, scoring='accuracy')
     
     resultats = {}
+    modeles_optimises_pour_voting = []
     
     for nom, mod in modeles.items():
         print(f"\n--- Évaluation de {nom} ---")
@@ -150,11 +153,84 @@ def main():
             roc, f1, prec, rec, acc = evaluer_modele(f"{nom} (Optimisé)", mod_opt, X_train_norm, y_train, X_test_norm, y_test)
             
             resultats[nom] = {'ROC-AUC': roc, 'F1-Score': f1, 'Précision': prec, 'Rappel': rec, 'Accuracy': acc}
+            
+            # Ajouter le modèle entraîné à notre liste pour le vote final
+            modeles_optimises_pour_voting.append((nom, mod_opt))
+            
         except Exception as e:
             print(f" Échec du modèle {nom} : {e}")
+
+    # =====  MyVotingPyOD =====
+    print("\n\n" + "="*40)
+    print(" ÉVALUATION DU MYVOTINGPYOD (ENSEMBLE)")
+    print("="*40)
+    
+    if len(modeles_optimises_pour_voting) > 0:
+        # Poids exponentiels pour donner plus d'importance aux meilleurs modèles
+        poids_f1 = [resultats[nom]['F1-Score']**3 for nom, mod in modeles_optimises_pour_voting]
+        
+        # On garde les ensembles pertinents : hard, soft et S&F
+        strategies = ['hard', 'soft', 'S&F']
+        
+        for strat in strategies:
+            print(f"\n--- MyVotingPyOD (Stratégie: {strat}) ---")
+            nom_vote = f"Ensemble_{strat}"
+            # Utiliser y_train dans le fit pour l'auto-optimisation du seuil de coupure du Soft
+            vote_model = MyVotingPyOD(
+                estimators=modeles_optimises_pour_voting,
+                voting=strat,
+                weights=poids_f1,
+                verbose=False,
+                vote_metric='accuracy',
+                threshold_metric='accuracy'
+            )
+            
+            # Important : fitter nos propres scalers internes et calculer le seuil avec y_train
+            vote_model.fit(X_train_norm, y_train)
+            
+            # Prédictions
+            y_test_pred = vote_model.predict(X_test_norm)
+            
+            # Calcul des métriques pour MyVotingPyOD
+            # En hard vote, on a pas de score continu on utilise la prédiction pour le roc
+            if strat == 'hard':
+                y_test_scores = y_test_pred
+            else:
+                y_test_scores = vote_model.decision_function(X_test_norm)
+                
+            roc_auc = roc_auc_score(y_test, y_test_scores)
+            f1 = f1_score(y_test, y_test_pred)
+            prec = precision_score(y_test, y_test_pred, zero_division=0)
+            rec = recall_score(y_test, y_test_pred, zero_division=0)
+            acc = accuracy_score(y_test, y_test_pred)
+            
+            print(f"ROC-AUC  : {roc_auc:.4f}")
+            print(f"F1-Score : {f1:.4f}")
+            print(f"Précision: {prec:.4f}")
+            print(f"Rappel   : {rec:.4f}")
+            print(f"Accuracy : {acc:.4f}")
+            
+            resultats[nom_vote] = {'ROC-AUC': roc_auc, 'F1-Score': f1, 'Précision': prec, 'Rappel': rec, 'Accuracy': acc}
+    else:
+        print("Aucun modèle optimisé disponible pour le vote.")
         
     print("\n=== RÉSUMÉ DES PERFORMANCES ===")
     df_res = pd.DataFrame(resultats).T
+    
+    # 1. Isoler les modèles de base pour calculer les statistiques sans pourrir les calculs avec les ensembles
+    modeles_base = [nom for nom in df_res.index if not nom.startswith("Ensemble_")]
+    df_base = df_res.loc[modeles_base]
+    
+    # 2. Calculer le Minimum absolu (le pire), le Maximum (le meilleur) et la Moyenne (Avg) des MODÈLES DE BASE
+    row_min = df_base.min()
+    row_max = df_base.max()
+    row_avg = df_base.mean()
+    
+    # 3. Les rajouter dans le DataFrame global pour les afficher dans le tableau de ton rapport
+    df_res.loc['[STAT] Pire Modèle (MIN)'] = row_min
+    df_res.loc['[STAT] Moyenne Globale (AVG)'] = row_avg
+    df_res.loc['[STAT] Meilleur Modèle (MAX)'] = row_max
+    
     df_res = df_res.sort_values(by="ROC-AUC", ascending=False)
     print(df_res)
 

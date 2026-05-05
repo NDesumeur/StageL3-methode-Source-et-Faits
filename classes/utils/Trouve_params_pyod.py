@@ -1,6 +1,6 @@
 import numpy as np
 from sklearn.model_selection import ParameterGrid, StratifiedKFold
-from sklearn.metrics import f1_score, roc_auc_score
+from sklearn.metrics import f1_score, roc_auc_score, accuracy_score, average_precision_score
 from pyod.models.iforest import IForest
 from pyod.models.lof import LOF
 from pyod.models.cblof import CBLOF
@@ -93,13 +93,18 @@ class Trouve_params_pyod:
                 
                 try:
                     mod_instance.fit(X_tr)
-                    
+                    # Choix de la métrique selon self.scoring
                     if self.scoring == 'roc_auc':
-                        # ROC-AUC préfère les scores continus
                         preds = mod_instance.decision_function(X_val)
                         score = roc_auc_score(y_val, preds)
+                    elif self.scoring in ['average_precision', 'ap']:
+                        preds = mod_instance.decision_function(X_val)
+                        score = average_precision_score(y_val, preds)
+                    elif self.scoring == 'accuracy':
+                        preds = mod_instance.predict(X_val)
+                        score = accuracy_score(y_val, preds)
                     else:
-                        # F1 préfère les prédictions binaires (0/1)
+                        # default to f1
                         preds = mod_instance.predict(X_val)
                         score = f1_score(y_val, preds, zero_division=0)
                         

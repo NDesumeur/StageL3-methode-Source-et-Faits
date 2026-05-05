@@ -25,11 +25,16 @@ page_adbench = st.Page(
     title="3. Explorateur ADBench"
 )
 
+page_adbench_benchmark = st.Page(
+    os.path.join(base_dir, "app_benchmark_adbench.py"),
+    title="4. Benchmark ADBench"
+)
+
 # --- Configuration du menu de navigation ---
 pg = st.navigation(
     {
         "Scikit-Learn": [page_classification, page_borda_tsne],
-        "PyOD": [page_adbench],
+        "PyOD": [page_adbench, page_adbench_benchmark],
     }
 )
 
